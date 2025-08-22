@@ -78,75 +78,72 @@ const App: React.FC = () => {
       [Provider.TogetherAI]: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
     });
 
-    const initialState = getInitialStateForProvider(activeProvider);
-    const [sessions, setSessions] = useState<Record<Agent, ChatSession[]>>(initialState.sessions);
-    const [activeSessionIds, setActiveSessionIds] = useState<Record<Agent, string>>(initialState.activeSessionIds);
+    const [sessions, setSessions] = useState<Record<Agent, ChatSession[]>>({});
+    const [activeSessionIds, setActiveSessionIds] = useState<Record<Agent, string>>({});
     
     const aiRef = useRef<GoogleGenAI | null>(null);
-    const previousProviderRef = useRef(activeProvider);
+    const isInitialLoadRef = useRef(true);
 
+    // Effect to initialize and switch provider state
     useEffect(() => {
-        setError(null); // Clear previous errors on provider change
+        // On initial load or provider switch, load the corresponding state
+        const initialState = getInitialStateForProvider(activeProvider);
+        setSessions(initialState.sessions);
+        setActiveSessionIds(initialState.activeSessionIds);
+
+        // Reset agent to default if the new provider is not Gemini
+        if (activeProvider !== Provider.Gemini) {
+            setActiveAgent(Agent.Default);
+        }
+
+        isInitialLoadRef.current = true; // Flag to prevent saving on first render of this effect
+    }, [activeProvider]);
+
+    // Effect to save state to localStorage
+    useEffect(() => {
+        if (isInitialLoadRef.current) {
+            isInitialLoadRef.current = false;
+            return;
+        }
+        try {
+            const stateToSave = { sessions, activeSessionIds };
+            localStorage.setItem(`chatState-${activeProvider}`, JSON.stringify(stateToSave));
+        } catch (error) {
+            console.error("Failed to save state to localStorage", error);
+        }
+    }, [sessions, activeSessionIds, activeProvider]);
+
+    // Effect to handle API key and AI client initialization
+    useEffect(() => {
+        setError(null);
+        aiRef.current = null;
 
         switch(activeProvider) {
             case Provider.Gemini:
-                const geminiApiKey = process.env.GEMINI_API_KEY;
+                const geminiApiKey = import.meta.env.VITE_GEMINI_API_KEY;
                 if (geminiApiKey) {
                     try {
                         aiRef.current = new GoogleGenAI({ apiKey: geminiApiKey });
                     } catch (e) {
                         console.error(e);
                         setError(e instanceof Error ? e.message : "Failed to initialize Gemini Client.");
-                        aiRef.current = null;
                     }
                 } else {
-                    setError('Gemini API key not set. Please set the GEMINI_API_KEY environment variable.');
-                    aiRef.current = null;
+                    setError('Gemini API key not set. Please set the VITE_GEMINI_API_KEY environment variable.');
                 }
                 break;
             case Provider.HuggingFace:
-                if (!process.env.HUGGING_FACE_TOKEN) {
-                    setError('Hugging Face API key not set. Please set the HUGGING_FACE_TOKEN environment variable.');
+                if (!import.meta.env.VITE_HUGGING_FACE_TOKEN) {
+                    setError('Hugging Face API key not set. Please set the VITE_HUGGING_FACE_TOKEN environment variable.');
                 }
                 break;
             case Provider.TogetherAI:
-                if (!process.env.TOGETHER_API_KEY) {
-                    setError('Together.AI API key not set. Please set the TOGETHER_API_KEY environment variable.');
+                if (!import.meta.env.VITE_TOGETHER_API_KEY) {
+                    setError('Together.AI API key not set. Please set the VITE_TOGETHER_API_KEY environment variable.');
                 }
                 break;
         }
     }, [activeProvider]);
-
-    useEffect(() => {
-        const previousProvider = previousProviderRef.current;
-        if (previousProvider !== activeProvider) {
-            // Save state for the provider we're leaving
-            try {
-                localStorage.setItem(`chatState-${previousProvider}`, JSON.stringify({ sessions, activeSessionIds }));
-            } catch (error) {
-                console.error("Failed to save state to localStorage", error);
-            }
-
-            // Load state for the new provider
-            const newState = getInitialStateForProvider(activeProvider);
-            setSessions(newState.sessions);
-            setActiveSessionIds(newState.activeSessionIds);
-
-            // If new provider is not Gemini, reset agent to Default
-            if (activeProvider !== Provider.Gemini) {
-                setActiveAgent(Agent.Default);
-            }
-            previousProviderRef.current = activeProvider;
-        }
-    }, [activeProvider, sessions, activeSessionIds]);
-
-    useEffect(() => {
-        try {
-            localStorage.setItem(`chatState-${activeProvider}`, JSON.stringify({ sessions, activeSessionIds }));
-        } catch (error) {
-            console.error("Failed to save state to localStorage", error);
-        }
-    }, [sessions, activeSessionIds, activeProvider]);
     
     const activeSessionId = activeSessionIds[activeAgent];
     const activeSession = sessions[activeAgent]?.find(s => s.id === activeSessionId);
@@ -263,7 +260,7 @@ const App: React.FC = () => {
 
     const handleHuggingFaceStream = (text: string) => {
         const model = modelState[Provider.HuggingFace];
-        const apiKey = process.env.HUGGING_FACE_TOKEN;
+        const apiKey = import.meta.env.VITE_HUGGING_FACE_TOKEN;
         return handleGenericStream(
             text,
             Provider.HuggingFace,
@@ -277,7 +274,7 @@ const App: React.FC = () => {
 
     const handleTogetherAIStream = (text: string) => {
         const model = modelState[Provider.TogetherAI];
-        const apiKey = process.env.TOGETHER_API_KEY;
+        const apiKey = import.meta.env.VITE_TOGETHER_API_KEY;
         const history = activeSession.messages.map(msg => ({ role: msg.role === Role.USER ? 'user' : 'assistant', content: msg.content }));
         return handleGenericStream(
             text,
@@ -417,17 +414,20 @@ const App: React.FC = () => {
         }
     }, [isLoading, activeProvider, activeAgent, activeSession, generateTitle, handleChatStream, handleImageGeneration, modelState]);
     
+    const createNewSession = (agent: Agent): ChatSession => ({
+        id: `chat-${Date.now()}`,
+        title: 'New Chat',
+        messages: [{
+            role: Role.MODEL,
+            content: agentIntroMessages[agent],
+            agent: agent,
+        }],
+    });
+
     const handleNewChat = useCallback(() => {
         const agentForNewChat = activeProvider === Provider.Gemini ? activeAgent : Agent.Default;
-        const newSession: ChatSession = {
-            id: `chat-${Date.now()}`,
-            title: 'New Chat',
-            messages: [{
-                role: Role.MODEL,
-                content: agentIntroMessages[agentForNewChat],
-                agent: agentForNewChat,
-            }],
-        };
+        const newSession = createNewSession(agentForNewChat);
+
         setSessions(prev => ({ ...prev, [agentForNewChat]: [newSession, ...(prev[agentForNewChat] || [])] }));
         setActiveSessionIds(prev => ({ ...prev, [agentForNewChat]: newSession.id }));
     }, [activeProvider, activeAgent]);
@@ -437,19 +437,24 @@ const App: React.FC = () => {
     }, [activeAgent]);
 
     const handleDeleteSession = useCallback((sessionId: string) => {
-        setSessions(prev => {
-            const newAgentSessions = prev[activeAgent].filter(s => s.id !== sessionId);
-            if (activeSessionId === sessionId) {
-                 const newActiveId = newAgentSessions.length > 0 ? newAgentSessions[0].id : null;
-                 if (newActiveId) {
-                    setActiveSessionIds(p => ({...p, [activeAgent]: newActiveId}));
-                 } else {
-                    handleNewChat();
-                 }
+        setSessions(prevSessions => {
+            const agentSessions = prevSessions[activeAgent] || [];
+            const newAgentSessions = agentSessions.filter(s => s.id !== sessionId);
+
+            if (newAgentSessions.length === 0) {
+                // If all sessions for an agent are deleted, create a new one
+                const newSession = createNewSession(activeAgent);
+                setActiveSessionIds(prevIds => ({ ...prevIds, [activeAgent]: newSession.id }));
+                return { ...prevSessions, [activeAgent]: [newSession] };
+            } else {
+                // If the active session was deleted, select the first remaining session
+                if (activeSessionId === sessionId) {
+                    setActiveSessionIds(prevIds => ({ ...prevIds, [activeAgent]: newAgentSessions[0].id }));
+                }
+                return { ...prevSessions, [activeAgent]: newAgentSessions };
             }
-            return { ...prev, [activeAgent]: newAgentSessions };
         });
-    }, [activeAgent, activeSessionId, handleNewChat]);
+    }, [activeAgent, activeSessionId]);
 
     return (
         <div className="flex h-screen bg-slate-900 font-sans text-white">
