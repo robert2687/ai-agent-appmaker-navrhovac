@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { GoogleGenAI } from '@google/genai';
 import { Message, Role, Agent, ChatSession, Provider } from './types';
@@ -90,17 +91,17 @@ const App: React.FC = () => {
 
         switch(activeProvider) {
             case Provider.Gemini:
-                const geminiApiKey = process.env.GEMINI_API_KEY;
-                if (geminiApiKey) {
+                const apiKey = process.env.API_KEY;
+                if (apiKey) {
                     try {
-                        aiRef.current = new GoogleGenAI({ apiKey: geminiApiKey });
+                        aiRef.current = new GoogleGenAI({ apiKey: apiKey });
                     } catch (e) {
                         console.error(e);
                         setError(e instanceof Error ? e.message : "Failed to initialize Gemini Client.");
                         aiRef.current = null;
                     }
                 } else {
-                    setError('Gemini API key not set. Please set the GEMINI_API_KEY environment variable.');
+                    setError('Gemini API key not set. Please set the API_KEY environment variable.');
                     aiRef.current = null;
                 }
                 break;
