@@ -9,6 +9,9 @@ interface ModelInputProps {
 
 // Model lists for selection
 const providerModels: Record<string, string[]> = {
+    [Provider.Gemini]: [
+        'gemini-2.5-flash',
+    ],
     [Provider.HuggingFace]: [
         'mistralai/Mistral-7B-Instruct-v0.2',
         'meta-llama/Llama-2-7b-chat-hf',

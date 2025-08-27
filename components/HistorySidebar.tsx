@@ -1,9 +1,10 @@
-import React from 'react';
-import { ChatSession, Agent, Provider } from '../types';
+import React, { useMemo, useState } from 'react';
+import { ChatSession, Agent, Provider, Role } from '../types';
 import NewChatIcon from './icons/NewChatIcon';
 import TrashIcon from './icons/TrashIcon';
 import AgentIcon from './AgentIcon';
 import BotIcon from './icons/BotIcon';
+import SearchIcon from './icons/SearchIcon';
 
 interface HistorySidebarProps {
     isOpen: boolean;
@@ -26,6 +27,7 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({
     agent,
     provider,
 }) => {
+    const [searchTerm, setSearchTerm] = useState('');
 
     const handleDelete = (e: React.MouseEvent, sessionId: string) => {
         e.stopPropagation(); // Prevent session selection when deleting
@@ -33,6 +35,23 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({
             onDeleteSession(sessionId);
         }
     };
+
+    const filteredSessions = useMemo(() => {
+        if (!searchTerm.trim()) {
+            return sessions;
+        }
+        const lowercasedTerm = searchTerm.toLowerCase();
+        return sessions.filter(session => {
+            const titleMatch = session.title.toLowerCase().includes(lowercasedTerm);
+            if (titleMatch) return true;
+
+            const messageMatch = session.messages.some(message =>
+                message.role !== Role.ERROR && message.content.toLowerCase().includes(lowercasedTerm)
+            );
+            return messageMatch;
+        });
+    }, [sessions, searchTerm]);
+
 
     if (!isOpen) {
         return null;
@@ -57,8 +76,21 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({
                     <NewChatIcon />
                 </button>
             </div>
+            <div className="relative px-2 mb-2">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-5 pointer-events-none">
+                    <SearchIcon />
+                </div>
+                <input
+                    type="text"
+                    placeholder="Search chats..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full bg-slate-700/50 border border-slate-600 rounded-md py-2 pl-10 pr-4 text-sm text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    aria-label="Search past chats"
+                />
+            </div>
             <div className="flex-1 overflow-y-auto space-y-1 pr-1">
-                {sessions.map((session) => (
+                {filteredSessions.map((session) => (
                     <div
                         key={session.id}
                         onClick={() => onSelectSession(session.id)}

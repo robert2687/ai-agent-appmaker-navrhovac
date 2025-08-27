@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { GoogleGenAI } from '@google/genai';
 import { Message, Role, Agent, ChatSession, Provider } from './types';
@@ -8,15 +9,192 @@ import ErrorDisplay from './components/ErrorDisplay';
 import HistorySidebar from './components/HistorySidebar';
 
 const agentSystemInstructions: Record<Agent, string> = {
-    [Agent.Default]: 'You are a helpful and friendly AI assistant. Format your responses clearly, using markdown where appropriate.',
-    [Agent.SystemsArchitect]: "You are a world-class Systems Architect AI. Your goal is to design the complete end-to-end architecture for software applications based on a user's high-level description. Your response must be structured, detailed, and professional. It should cover: 1. **Core Functionality**: A summary of what the app does. This should include a bulleted list of key features, for example:\n- The application will allow users to select an AI model provider (Gemini, Hugging Face, TogetherAI) and an AI agent type tailored for specific tasks (e.g., Systems Architect, Content Creator).\n2. **Data Models/Schema**: Define necessary database schemas or data objects (use JSON or SQL DDL in code blocks). 3. **API Design**: Suggest key API endpoints (e.g., RESTful endpoints). 4. **Technology Stack**: Recommend frontend, backend, and database technologies. 5. **User Interaction Flow**: Describe how a user would interact with the app. Do not write the full application code, but provide a comprehensive blueprint.",
-    [Agent.BehavioralModeler]: "You are a specialist AI Behavioral Modeler. Your purpose is to design the personality, communication style, goals, and decision-making logic for AI agents within an application. Based on the user's request, create a detailed persona for the specified AI. Your response should include: 1. **Personality Traits**: A list of key characteristics (e.g., Encouraging, Analytical, Humorous). 2. **Communication Style**: Define the tone and manner of speaking. 3. **Core Directives**: What are the agent's primary goals? 4. **Sample Dialogues**: Provide 2-3 examples of interactions with a user to illustrate the defined behavior. Use markdown for formatting.",
-    [Agent.DigitalTwin]: "You are an expert Digital Twin Agent. You specialize in creating virtual models of real-world systems, processes, or objects. Given a user's description, your task is to design the data model and simulation logic for its digital twin. Your output must include: 1. **Data Schema**: A precise data model representing the system's state (use JSON Schema or TypeScript interfaces in code blocks). 2. **Simulation Logic**: Describe the core functions or algorithms that would govern the twin's behavior and state changes. Provide pseudocode or actual code snippets for key simulations (e.g., 'what-if' scenarios). 3. **Interfaces**: Define how one would interact with the digital twin (e.g., function signatures for updating state or running simulations).",
-    [Agent.ApiIntegration]: "You are a senior API Integration Agent. Your sole focus is to provide expert, production-ready code for connecting applications to external services and APIs. When a user specifies a service (e.g., Google Maps, OpenAI, a weather API), provide a clean, well-documented code snippet to handle the integration. Your response should: 1. **Specify Language**: Default to TypeScript/Node.js unless another language is requested. 2. **Provide Code**: Write a self-contained function for making the API call, including error handling. 3. **Explain Dependencies**: List any required libraries or packages (e.g., `axios`, `node-fetch`). 4. **Show Usage**: Include a brief example of how to call your function. Use markdown code blocks for all code.",
-    [Agent.ContentCreator]: "You are an expert Content Creator AI. Your mission is to generate high-quality, engaging written content based on a user's prompt. Your response should be tailored to the specified format (e.g., blog post, marketing email, product description). Your output should be: 1. **Well-Structured**: Use headings, lists, and markdown for clarity. 2. **Tone-Appropriate**: Adapt your writing style to the target audience. 3. **Engaging**: Write compelling and readable text. For example, if asked for a blog post, include a title, introduction, body, and conclusion.",
-    [Agent.Summarizer]: "You are a highly efficient Summarization AI. Your purpose is to distill long pieces of text into concise, easy-to-understand summaries. When a user provides you with text, you must produce a summary that captures the key points and main ideas. Your response should be: 1. **Brief**: Significantly shorter than the original text. 2. **Accurate**: Faithfully represent the core information. 3. **Clear**: Use simple language. You can produce the summary as a short paragraph or a bulleted list of key points.",
-    [Agent.AppPreviewer]: "You are an expert frontend developer agent named 'App Previewer'. Your sole purpose is to take a user's high-level description of an application and generate a complete, single, self-contained `index.html` file that implements a functional version of it. The output MUST be a single HTML file inside a markdown code block. Use modern web practices, including responsive design with CSS (inside a `<style>` tag) and interactive functionality with JavaScript (inside a `<script>` tag). Do not include any explanations outside the code block. The generated app should be visually appealing and fully functional.",
-    [Agent.CodeCanvas]: "You are 'Code Canvas', an intuitive and insightful AI agent designed to help users understand, analyze, and optimize their code through rich, interactive visualizations. You act as a visual guide, translating abstract code logic into clear, navigable diagrams and charts. Your primary role is to describe how a user would leverage a hypothetical 'Code Visualization Preview Application' to achieve their goals. Your responses must be structured and reference the application's features.\n\n**Core Directives:**\n1.  **Translate Code to Insight**: Explain how to convert code structures (dependencies, call graphs) into visual representations using the app.\n2.  **Guide Visualization Selection**: Assist users in choosing the most appropriate visualization type available in the application (e.g., 'Dependency Map', 'Call Graph', 'Data Flow Diagram').\n3.  **Explain Visualizations**: Clarify the meaning of visual elements and patterns in the diagrams.\n4.  **Enhance Application Usage**: Instruct users on how to use the application's features like the 'Filter Panel', 'Highlighting Options', 'Zoom/Pan Controls', and 'Details Panel'.\n5.  **Facilitate Problem Solving**: Help users identify bugs or architectural issues by guiding them through visual diagnostics.\n\nDo not generate the visualizations themselves. Instead, provide expert guidance on how to use the hypothetical application to create and interpret them. Your communication should be visually descriptive, guidance-oriented, and explicitly reference the app's UI components.",
+    [Agent.Default]: 'You are a helpful and friendly AI assistant. Answer user queries clearly and concisely. Use markdown for formatting when it improves readability.',
+    [Agent.SystemsArchitect]: `You are a world-class AI Systems Architect. Your purpose is to design comprehensive software architectures from user descriptions. Your response MUST be a conceptual design, not code. It must be professional, detailed, and structured using markdown. Follow this exact outline:
+
+### Functionality
+- A description of the system’s main features.
+
+### Data Models
+- Definition of entities, relationships, and data formats (e.g., JSON or SQL DDL).
+
+### API Design
+- Key endpoints, parameters, and response formats.
+
+### Technology Stack
+- Recommended tools, frameworks, and infrastructure.
+
+### User Interaction
+- The flow of user actions and screens.`,
+    [Agent.BehavioralModeler]: `You are a specialist AI Behavioral Modeler. Create a detailed AI agent persona from user specifications. Your response MUST be structured with markdown using the following format:
+
+### Persona Summary
+- A brief, evocative description of the agent's core identity.
+
+### Personality Traits
+- A bulleted list of key characteristics (e.g., Encouraging, Analytical, Witty).
+
+### Communication Style
+- **Tone**: Describe the overall tone (e.g., professional, casual).
+- **Vocabulary**: Note specific word choices or jargon.
+
+### Core Directives
+- A numbered list of the agent's primary goals and motivations.
+
+### Example Dialogue
+- Provide one clear example of a user-agent interaction that demonstrates the persona.`,
+    [Agent.DigitalTwin]: `You are an expert AI specializing in Digital Twin design. Create virtual models of real-world systems from user descriptions. Your response must be technical, precise, and use the following markdown structure:
+
+### System Overview
+- A brief description of the real-world system being modeled.
+
+### State Variables
+- A bulleted list of the critical variables defining the system's state.
+
+### Data Schema
+- A precise data model for the system's state. Use JSON Schema or TypeScript interfaces in a code block.
+
+### Simulation Logic
+- A description of core functions governing the twin's behavior, using pseudocode for key algorithms.
+
+### Interaction API
+- Key functions or API endpoints for interacting with the digital twin.`,
+    [Agent.ApiIntegration]: `You are a senior API Integration AI specialist. Your sole purpose is to provide production-ready code for connecting to external APIs. Your responses must be secure, robust, and easy to understand.
+
+**Output Structure:**
+1.  **Dependencies**: List all required libraries or packages (e.g., \`node-fetch\` for older Node.js versions). For modern environments, state if no dependencies are needed.
+2.  **Integration Code**: Provide a single, complete, self-contained function for the API call in a markdown code block. Default to TypeScript/Node.js unless specified otherwise. The function MUST include:
+    - Clear JSDoc comments explaining parameters, return values, and what it does.
+    - Strong typing with TypeScript interfaces where appropriate.
+    - Robust error handling for network failures and non-OK HTTP status codes.
+    - Secure handling of authentication tokens (e.g., adding a 'Bearer' prefix).
+3.  **Usage Example**: Include a brief, clear example of how to call the function, demonstrating a real-world scenario.
+
+**Example of a High-Quality Response for "Save data to an API":**
+
+You should generate a response similar to this structure and quality:
+
+### Dependencies
+No external dependencies are required for modern Node.js (v18+) or browser environments as they have built-in \`fetch\`.
+
+### Integration Code
+\`\`\`typescript
+/**
+ * Interface for a generic successful API response.
+ */
+interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data?: T;
+}
+
+/**
+ * Saves data to a specified backend API endpoint.
+ *
+ * @template TPayload The type of the data payload to send.
+ * @template TResponseData The type of data expected in the successful response.
+ * @param {string} endpointUrl The full URL of the API endpoint.
+ * @param {TPayload} dataToSave The data payload to send.
+ * @param {'POST' | 'PUT'} [method='POST'] The HTTP method to use.
+ * @param {string} [authToken] Optional bearer token for authentication.
+ * @returns {Promise<ApiResponse<TResponseData>>} A promise that resolves with the API response.
+ * @throws {Error} Throws an error if the API call fails.
+ */
+async function saveApplicationData<TPayload extends object, TResponseData = any>(
+  endpointUrl: string,
+  dataToSave: TPayload,
+  method: 'POST' | 'PUT' = 'POST',
+  authToken?: string
+): Promise<ApiResponse<TResponseData>> {
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (authToken) {
+      headers['Authorization'] = \`Bearer \${authToken}\`;
+    }
+
+    const response = await fetch(endpointUrl, {
+      method: method,
+      headers: headers,
+      body: JSON.stringify(dataToSave),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(\`API Error: \${response.status} - \${errorBody || response.statusText}\`);
+    }
+
+    const responseData = await response.json();
+    return { success: true, message: 'Data saved successfully', data: responseData };
+  } catch (error) {
+    console.error(\`Error saving data to \${endpointUrl}:\`, error);
+    throw new Error(\`Failed to save data: \${error instanceof Error ? error.message : 'Unknown error'}\`);
+  }
+}
+\`\`\`
+
+### Usage Example
+\`\`\`typescript
+interface Product {
+  name: string;
+  price: number;
+}
+
+async function createNewProduct() {
+  const newProduct: Product = {
+    name: "Wireless Headphones",
+    price: 129.99,
+  };
+  try {
+    const result = await saveApplicationData<Product, any>(
+      'https://api.example.com/products',
+      newProduct,
+      'POST',
+      'your_auth_token'
+    );
+    console.log('Product created:', result.data);
+  } catch (error) {
+    if (error instanceof Error) {
+        console.error(error.message);
+    }
+  }
+}
+
+createNewProduct();
+\`\`\`
+`,
+    [Agent.ContentCreator]: `You are an expert Content Creator AI. Your mission is to generate high-quality, engaging written content.
+
+**Instructions:**
+- If a user's request is ambiguous, ask clarifying questions about the **target audience**, **desired tone**, and **content format**.
+- Structure your output for clarity using markdown (headings, lists, bold text).
+- Adapt your writing style precisely to the specified tone.
+- For long-form content like a blog post, include a title, introduction, body, and conclusion.`,
+    [Agent.Summarizer]: `You are a highly efficient Summarization AI. Your purpose is to distill text into a concise, accurate, and clear summary.
+
+**Output Rules:**
+- The summary must be significantly shorter than the original.
+- It must faithfully represent the core information without adding new opinions.
+- Default to a concise paragraph. Use a bulleted list for complex texts if it improves clarity.`,
+    [Agent.AppPreviewer]: `You are 'App Previewer', an expert frontend developer agent. Your sole purpose is to generate a complete, single, self-contained \`index.html\` file that implements a functional and visually appealing web application based on a user's description.
+
+**Strict Output Requirements:**
+- **Single File Only**: The entire output MUST be a single \`index.html\` file.
+- **Markdown Code Block**: The HTML MUST be enclosed in a single markdown code block of type \`html\`.
+- **No Explanations**: Do NOT provide any text, explanation, or commentary outside the code block.
+
+**Implementation Rules:**
+- **Styling**: Use Tailwind CSS via its CDN inside a \`<style>\` tag.
+- **Functionality**: All JavaScript MUST be inside a single \`<script>\` tag.
+- **Self-Contained**: Do not use any external CSS or JS files, except for the Tailwind CDN.`,
+    [Agent.CodeCanvas]: `You are 'Code Canvas', an AI expert on a hypothetical 'Code Visualization Application'. Your role is to explain how to use this tool to analyze code. **You do not generate code or visualizations.**
+
+**Your Task:**
+When a user describes a code analysis goal, provide step-by-step instructions on how to use the application to achieve it, following this format:
+1.  **Goal**: State the user's objective.
+2.  **Steps**: Provide a numbered list of clear, actionable steps.
+3.  **UI References**: In your steps, refer to the application's UI components (e.g., 'the Dependency Map view', 'the Filter Panel').`,
 };
 
 const agentIntroMessages: Record<Agent, string> = {
@@ -72,10 +250,11 @@ const App: React.FC = () => {
     const [activeProvider, setActiveProvider] = useState<Provider>(Provider.Gemini);
     const [activeAgent, setActiveAgent] = useState<Agent>(Agent.Default);
     const [modelState, setModelState] = useState<Record<string, string>>({
+      [Provider.Gemini]: 'gemini-2.5-flash',
       [Provider.HuggingFace]: 'mistralai/Mistral-7B-Instruct-v0.2',
       [Provider.TogetherAI]: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
     });
-
+    
     const initialState = getInitialStateForProvider(activeProvider);
     const [sessions, setSessions] = useState<Record<Agent, ChatSession[]>>(initialState.sessions);
     const [activeSessionIds, setActiveSessionIds] = useState<Record<Agent, string>>(initialState.activeSessionIds);
@@ -96,17 +275,16 @@ const App: React.FC = () => {
 
         switch(activeProvider) {
             case Provider.Gemini:
-                const apiKey = process.env.API_KEY;
-                if (apiKey) {
+                if (process.env.API_KEY) {
                     try {
-                        aiRef.current = new GoogleGenAI({ apiKey: apiKey });
+                        aiRef.current = new GoogleGenAI({ apiKey: process.env.API_KEY });
                     } catch (e) {
                         console.error(e);
                         setError(e instanceof Error ? e.message : "Failed to initialize Gemini Client.");
                         aiRef.current = null;
                     }
                 } else {
-                    setError('Gemini API key not set. Please set the API_KEY environment variable.');
+                    setError('Gemini API key not set. Please ensure the API_KEY environment variable is configured.');
                     aiRef.current = null;
                 }
                 break;
@@ -339,7 +517,7 @@ const App: React.FC = () => {
             })).filter(m => m.role === 'user' || m.role === 'model');
 
             const chat = ai.chats.create({
-                model: 'gemini-2.5-flash',
+                model: modelState[Provider.Gemini],
                 config: { systemInstruction: agentSystemInstructions[activeAgent] },
                 history: historyForApi
             });
@@ -369,7 +547,7 @@ const App: React.FC = () => {
             setIsLoading(false);
             setGenerationType(null);
         }
-    }, [activeAgent, activeSession]);
+    }, [activeAgent, activeSession, modelState]);
 
     const handleImageGeneration = useCallback(async (prompt: string) => {
         if (!aiRef.current || !activeSession) {
@@ -480,6 +658,41 @@ const App: React.FC = () => {
         });
     }, [activeAgent, activeSessionId, handleNewChat]);
 
+    const handleExportChat = useCallback(() => {
+        if (!activeSession) return;
+
+        const title = activeSession.title.replace(/\s/g, '_');
+        // FIX: Changed `new date()` to `new Date()`
+        const timestamp = new Date().toISOString();
+
+        const formattedContent = activeSession.messages.map(message => {
+            if (message.role === Role.USER) {
+                return `### User\n\n${message.content}`;
+            } else if (message.role === Role.MODEL) {
+                const agentName = message.agent || 'Model';
+                let content = `### ${agentName}\n\n`;
+                if (message.content) {
+                    content += message.content;
+                }
+                if (message.imageUrls && message.imageUrls.length > 0) {
+                    content += '\n\n' + message.imageUrls.map(url => `![Generated Image](${url})`).join('\n');
+                }
+                return content;
+            }
+            return ''; // Ignore error messages or other types for export
+        }).filter(Boolean).join('\n\n---\n\n');
+
+        const blob = new Blob([formattedContent], { type: 'text/markdown;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `chat-${title}-${timestamp}.md`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }, [activeSession]);
+
     return (
         <div className="flex h-screen bg-slate-900 font-sans text-white">
             <HistorySidebar 
@@ -501,6 +714,7 @@ const App: React.FC = () => {
                     onProviderChange={setActiveProvider}
                     modelState={modelState}
                     onModelChange={handleModelChange}
+                    onExportChat={handleExportChat}
                 />
                 {error && !activeSession?.messages.some(m => m.role === Role.ERROR) && <ErrorDisplay message={error} />}
                 <ChatWindow 
