@@ -1,6 +1,9 @@
 
 
 
+
+
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { GoogleGenAI } from '@google/genai';
 import { Message, Role, Agent, ChatSession, Provider } from './types';
@@ -85,6 +88,7 @@ const App: React.FC = () => {
     
     const aiRef = useRef<GoogleGenAI | null>(null);
     const previousProviderRef = useRef(activeProvider);
+    const autosaveStateRef = useRef({ sessions, activeSessionIds, activeProvider });
 
     useEffect(() => {
         setError(null); // Clear previous errors on provider change
@@ -141,6 +145,7 @@ const App: React.FC = () => {
         }
     }, [activeProvider, sessions, activeSessionIds]);
 
+    // Save state to localStorage on every change.
     useEffect(() => {
         try {
             localStorage.setItem(`chatState-${activeProvider}`, JSON.stringify({ sessions, activeSessionIds }));
@@ -148,6 +153,28 @@ const App: React.FC = () => {
             console.error("Failed to save state to localStorage", error);
         }
     }, [sessions, activeSessionIds, activeProvider]);
+
+    // Autosave chat state at regular intervals as a fallback.
+    // A ref is used to provide the interval callback with the latest state without
+    // needing to recreate the interval on every state change.
+    useEffect(() => {
+        autosaveStateRef.current = { sessions, activeSessionIds, activeProvider };
+    }, [sessions, activeSessionIds, activeProvider]);
+
+    useEffect(() => {
+        const AUTOSAVE_INTERVAL_MS = 15000; // 15 seconds
+
+        const intervalId = setInterval(() => {
+            const { sessions, activeSessionIds, activeProvider } = autosaveStateRef.current;
+            try {
+                localStorage.setItem(`chatState-${activeProvider}`, JSON.stringify({ sessions, activeSessionIds }));
+            } catch (error) {
+                console.error("Periodic autosave to localStorage failed:", error);
+            }
+        }, AUTOSAVE_INTERVAL_MS);
+
+        return () => clearInterval(intervalId);
+    }, []); // This effect runs only once on component mount.
     
     const activeSessionId = activeSessionIds[activeAgent];
     const activeSession = sessions[activeAgent]?.find(s => s.id === activeSessionId);
@@ -358,7 +385,7 @@ const App: React.FC = () => {
     
         try {
             const response = await aiRef.current.models.generateImages({
-                model: 'imagen-3.0-generate-002',
+                model: 'imagen-4.0-generate-001',
                 prompt,
                 config: { numberOfImages: 1, outputMimeType: 'image/jpeg', aspectRatio: '1:1' },
             });
