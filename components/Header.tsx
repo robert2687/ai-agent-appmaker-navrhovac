@@ -12,7 +12,7 @@ interface HeaderProps {
     activeProvider: Provider;
     onProviderChange: (provider: Provider) => void;
     modelState: Record<string, string>;
-    onModelStateChange: (newState: Record<string, string>) => void;
+    onModelChange: (provider: Provider, model: string) => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ 
@@ -22,7 +22,7 @@ const Header: React.FC<HeaderProps> = ({
     activeProvider,
     onProviderChange,
     modelState,
-    onModelStateChange
+    onModelChange
 }) => {
     return (
         <header className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700 p-4 shadow-md z-10 flex-shrink-0">
@@ -46,7 +46,7 @@ const Header: React.FC<HeaderProps> = ({
                        <ModelInput 
                          provider={activeProvider}
                          model={modelState[activeProvider] || ''}
-                         setModel={(newModel) => onModelStateChange({...modelState, [activeProvider]: newModel})}
+                         setModel={(newModel) => onModelChange(activeProvider, newModel)}
                        />
                     )}
                 </div>

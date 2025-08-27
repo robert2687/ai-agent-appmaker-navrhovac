@@ -80,6 +80,13 @@ const App: React.FC = () => {
     const [sessions, setSessions] = useState<Record<Agent, ChatSession[]>>(initialState.sessions);
     const [activeSessionIds, setActiveSessionIds] = useState<Record<Agent, string>>(initialState.activeSessionIds);
     
+    const handleModelChange = (provider: Provider, newModel: string) => {
+        setModelState(prevState => ({
+            ...prevState,
+            [provider]: newModel
+        }));
+    };
+
     const aiRef = useRef<GoogleGenAI | null>(null);
     const previousProviderRef = useRef(activeProvider);
     const autosaveStateRef = useRef({ sessions, activeSessionIds, activeProvider });
@@ -493,7 +500,7 @@ const App: React.FC = () => {
                     activeProvider={activeProvider}
                     onProviderChange={setActiveProvider}
                     modelState={modelState}
-                    onModelStateChange={setModelState}
+                    onModelChange={handleModelChange}
                 />
                 {error && !activeSession?.messages.some(m => m.role === Role.ERROR) && <ErrorDisplay message={error} />}
                 <ChatWindow 
