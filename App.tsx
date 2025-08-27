@@ -644,19 +644,35 @@ const App: React.FC = () => {
     }, [activeAgent]);
 
     const handleDeleteSession = useCallback((sessionId: string) => {
-        setSessions(prev => {
-            const newAgentSessions = prev[activeAgent].filter(s => s.id !== sessionId);
+        setSessions(prevSessions => {
+            const currentAgentSessions = prevSessions[activeAgent] || [];
+            const newAgentSessions = currentAgentSessions.filter(s => s.id !== sessionId);
+
             if (activeSessionId === sessionId) {
-                 const newActiveId = newAgentSessions.length > 0 ? newAgentSessions[0].id : null;
-                 if (newActiveId) {
-                    setActiveSessionIds(p => ({...p, [activeAgent]: newActiveId}));
-                 } else {
-                    handleNewChat();
-                 }
+                // The active session was deleted
+                if (newAgentSessions.length > 0) {
+                    // There are other sessions left, make the first one active
+                    setActiveSessionIds(prevIds => ({ ...prevIds, [activeAgent]: newAgentSessions[0].id }));
+                } else {
+                    // No sessions left, create a new one
+                    const agentForNewChat = activeProvider === Provider.Gemini ? activeAgent : Agent.Default;
+                    const newSession: ChatSession = {
+                        id: `chat-${Date.now()}`,
+                        title: 'New Chat',
+                        messages: [{
+                            role: Role.MODEL,
+                            content: agentIntroMessages[agentForNewChat],
+                            agent: agentForNewChat,
+                        }],
+                    };
+                    setActiveSessionIds(prevIds => ({ ...prevIds, [activeAgent]: newSession.id }));
+                    return { ...prevSessions, [activeAgent]: [newSession] };
+                }
             }
-            return { ...prev, [activeAgent]: newAgentSessions };
+
+            return { ...prevSessions, [activeAgent]: newAgentSessions };
         });
-    }, [activeAgent, activeSessionId, handleNewChat]);
+    }, [activeAgent, activeSessionId, activeProvider]);
 
     const handleExportChat = useCallback(() => {
         if (!activeSession) return;
