@@ -30,8 +30,8 @@ const Message: React.FC<MessageProps> = ({ message }) => {
             ? 'bg-blue-600 text-white rounded-br-lg'
             : isError
             ? 'bg-red-800 text-red-100 rounded-bl-lg'
-            : 'bg-slate-700 text-slate-200 rounded-bl-lg'
-    } ${hasImages ? 'p-2 bg-slate-800/50' : 'px-5 py-3'}`;
+            : 'bg-gray-700 text-slate-200 rounded-bl-lg'
+    } ${hasImages ? 'p-2 bg-gray-800/50' : 'px-5 py-3'}`;
     
     const icon = isUser ? <UserIcon /> : isError ? <ErrorIcon /> : <AgentIcon agent={message.agent} />;
 
@@ -75,13 +75,13 @@ const Message: React.FC<MessageProps> = ({ message }) => {
 
     return (
         <div className={wrapperClasses}>
-            {!isUser && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center mt-1">{icon}</div>}
+            {!isUser && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center mt-1">{icon}</div>}
             <div className={bubbleClasses}>
                 {!isUser && !hasImages && message.content && (
                      <div className="absolute top-1 right-1 z-10 flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                         <button
                             onClick={handleDownload}
-                            className="p-1.5 rounded-full text-slate-400 hover:bg-slate-600 hover:text-slate-100 transition-colors"
+                            className="p-1.5 rounded-full text-slate-400 hover:bg-gray-600 hover:text-slate-100 transition-colors"
                             aria-label="Download message"
                             title="Download"
                         >
@@ -89,7 +89,7 @@ const Message: React.FC<MessageProps> = ({ message }) => {
                         </button>
                         <button
                             onClick={handleCopy}
-                            className="p-1.5 rounded-full text-slate-400 hover:bg-slate-600 hover:text-slate-100 transition-colors"
+                            className="p-1.5 rounded-full text-slate-400 hover:bg-gray-600 hover:text-slate-100 transition-colors"
                             aria-label="Copy message"
                             title={isCopied ? "Copied!" : "Copy"}
                         >

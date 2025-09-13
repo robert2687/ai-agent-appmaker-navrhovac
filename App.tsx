@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, Chat } from '@google/genai';
 import { Message, Role, Agent, ChatSession, Provider } from './types';
 import Header from './components/Header';
 import ChatWindow from './components/ChatWindow';
@@ -185,7 +185,7 @@ createNewProduct();
 - **No Explanations**: Do NOT provide any text, explanation, or commentary outside the code block.
 
 **Implementation Rules:**
-- **Styling**: Use Tailwind CSS via its CDN inside a \`<style>\` tag.
+- **Styling**: Use Tailwind CSS via its CDN.
 - **Functionality**: All JavaScript MUST be inside a single \`<script>\` tag.
 - **Self-Contained**: Do not use any external CSS or JS files, except for the Tailwind CDN.`,
     [Agent.CodeCanvas]: `You are 'Code Canvas', an AI expert on a hypothetical 'Code Visualization Application'. Your role is to explain how to use this tool to analyze code. **You do not generate code or visualizations.**
@@ -243,6 +243,7 @@ const getInitialStateForProvider = (provider: Provider) => {
 
 const App: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
+    const [isStreaming, setIsStreaming] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [generationType, setGenerationType] = useState<'text' | 'image' | null>(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -269,6 +270,9 @@ const App: React.FC = () => {
     const aiRef = useRef<GoogleGenAI | null>(null);
     const previousProviderRef = useRef(activeProvider);
     const autosaveStateRef = useRef({ sessions, activeSessionIds, activeProvider });
+    const chatInstancesRef = useRef<Map<string, Chat>>(new Map());
+    const streamControllerRef = useRef<AbortController | null>(null);
+
 
     useEffect(() => {
         setError(null); // Clear previous errors on provider change
@@ -310,6 +314,8 @@ const App: React.FC = () => {
             } catch (error) {
                 console.error("Failed to save state to localStorage", error);
             }
+            
+            chatInstancesRef.current.clear(); // Clear cached chat instances on provider change
 
             // Load state for the new provider
             const newState = getInitialStateForProvider(activeProvider);
@@ -334,8 +340,6 @@ const App: React.FC = () => {
     }, [sessions, activeSessionIds, activeProvider]);
 
     // Autosave chat state at regular intervals as a fallback.
-    // A ref is used to provide the interval callback with the latest state without
-    // needing to recreate the interval on every state change.
     useEffect(() => {
         autosaveStateRef.current = { sessions, activeSessionIds, activeProvider };
     }, [sessions, activeSessionIds, activeProvider]);
@@ -353,7 +357,7 @@ const App: React.FC = () => {
         }, AUTOSAVE_INTERVAL_MS);
 
         return () => clearInterval(intervalId);
-    }, []); // This effect runs only once on component mount.
+    }, []);
     
     const activeSessionId = activeSessionIds[activeAgent];
     const activeSession = sessions[activeAgent]?.find(s => s.id === activeSessionId);
@@ -389,21 +393,9 @@ const App: React.FC = () => {
         }
     }, []);
 
-    const processStream = async (stream: ReadableStream<Uint8Array>, updateChunk: (chunk: string) => void) => {
-        const reader = stream.getReader();
-        const decoder = new TextDecoder();
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            const text = decoder.decode(value, { stream: true });
-            updateChunk(text);
-        }
-    };
-
-    const handleGenericStream = async (text: string, provider: Provider, model: string, apiKey: string | undefined, url: string, body: object, parseChunk: (chunk: any) => string) => {
+    const handleGenericStream = async (text: string, provider: Provider, model: string, apiKey: string | undefined, url: string, body: object, parseChunk: (chunk: any) => string, signal: AbortSignal) => {
         if (!apiKey) {
             setError(`${provider} API key not set.`);
-            setIsLoading(false);
             return;
         }
         setGenerationType('text');
@@ -415,6 +407,7 @@ const App: React.FC = () => {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
                 body: JSON.stringify(body),
+                signal,
             });
             if (!response.ok || !response.body) {
                 const errorText = await response.text();
@@ -457,51 +450,47 @@ const App: React.FC = () => {
                 }
             }
         } catch (e) {
+            if (e.name === 'AbortError') {
+                console.log('Stream stopped by user.');
+                return;
+            }
             console.error(e);
             const errorMessage = e instanceof Error ? e.message : 'An unknown error occurred.';
             const finalError = `Sorry, something went wrong with ${provider}: ${errorMessage}`;
             updateMessagesInSession(activeSession.id, (messages) => messages.slice(0, -1).concat({ role: Role.ERROR, content: finalError }));
             setError(finalError);
-        } finally {
-            setIsLoading(false);
-            setGenerationType(null);
         }
     };
 
-    const handleHuggingFaceStream = (text: string) => {
+    const handleHuggingFaceStream = (text: string, signal: AbortSignal) => {
         const model = modelState[Provider.HuggingFace];
         const apiKey = process.env.HUGGING_FACE_TOKEN;
         return handleGenericStream(
-            text,
-            Provider.HuggingFace,
-            model,
-            apiKey,
+            text, Provider.HuggingFace, model, apiKey,
             `https://api-inference.huggingface.co/models/${model}`,
             { inputs: text, stream: true, parameters: { max_new_tokens: 1024 } },
-            (chunk) => chunk?.token?.text ?? ''
+            (chunk) => chunk?.token?.text ?? '',
+            signal
         );
     };
 
-    const handleTogetherAIStream = (text: string) => {
+    const handleTogetherAIStream = (text: string, signal: AbortSignal) => {
         const model = modelState[Provider.TogetherAI];
         const apiKey = process.env.TOGETHER_API_KEY;
         const history = activeSession.messages.map(msg => ({ role: msg.role === Role.USER ? 'user' : 'assistant', content: msg.content }));
         return handleGenericStream(
-            text,
-            Provider.TogetherAI,
-            model,
-            apiKey,
+            text, Provider.TogetherAI, model, apiKey,
             'https://api.together.xyz/v1/chat/completions',
             { model, messages: [...history, { role: 'user', content: text }], stream: true, max_tokens: 1024 },
-            (chunk) => chunk?.choices?.[0]?.delta?.content ?? ''
+            (chunk) => chunk?.choices?.[0]?.delta?.content ?? '',
+            signal
         );
     };
 
-    const handleChatStream = useCallback(async (text: string) => {
+    const handleChatStream = useCallback(async (text: string, signal: AbortSignal) => {
         const ai = aiRef.current;
         if (!ai || !activeSession) {
             setError("Chat session is not ready. Please check your API key and refresh.");
-            setIsLoading(false);
             return;
         }
 
@@ -511,20 +500,30 @@ const App: React.FC = () => {
         updateMessagesInSession(activeSession.id, (messages) => [...messages, userMessage, { role: Role.MODEL, content: '', agent: activeAgent }]);
 
         try {
-            const historyForApi = activeSession.messages.map(msg => ({
-                role: msg.role === Role.USER ? 'user' : 'model',
-                parts: [{ text: msg.content }]
-            })).filter(m => m.role === 'user' || m.role === 'model');
+            let chat = chatInstancesRef.current.get(activeSession.id);
+            if (!chat) {
+                const historyForApi = activeSession.messages
+                    .filter(m => m.role === 'user' || m.role === 'model')
+                    .map(msg => ({
+                        role: msg.role === Role.USER ? 'user' : 'model',
+                        parts: [{ text: msg.content }]
+                    }));
 
-            const chat = ai.chats.create({
-                model: modelState[Provider.Gemini],
-                config: { systemInstruction: agentSystemInstructions[activeAgent] },
-                history: historyForApi
-            });
+                chat = ai.chats.create({
+                    model: modelState[Provider.Gemini],
+                    config: { systemInstruction: agentSystemInstructions[activeAgent] },
+                    history: historyForApi
+                });
+                chatInstancesRef.current.set(activeSession.id, chat);
+            }
             
             const stream = await chat.sendMessageStream({ message: text });
 
             for await (const chunk of stream) {
+                if (signal.aborted) {
+                    console.log('Stream stopped by user.');
+                    break;
+                }
                 const chunkText = chunk.text;
                 if (chunkText) {
                     updateMessagesInSession(activeSession.id, (messages) => {
@@ -543,20 +542,17 @@ const App: React.FC = () => {
             const finalError = `Sorry, something went wrong: ${errorMessage}`;
             updateMessagesInSession(activeSession.id, (messages) => messages.slice(0, -1).concat({ role: Role.ERROR, content: finalError }));
             setError(finalError);
-        } finally {
-            setIsLoading(false);
-            setGenerationType(null);
         }
     }, [activeAgent, activeSession, modelState]);
 
     const handleImageGeneration = useCallback(async (prompt: string) => {
         if (!aiRef.current || !activeSession) {
             setError("AI Client is not initialized.");
-            setIsLoading(false); return;
+            return;
         }
         if (!prompt) {
             setError("Please provide a prompt for the image.");
-            setIsLoading(false); return;
+            return;
         }
         setGenerationType('image');
         const userMessage: Message = { role: Role.USER, content: `/imagine ${prompt}` };
@@ -577,14 +573,11 @@ const App: React.FC = () => {
             const finalError = `Sorry, something went wrong while generating the image: ${errorMessage}`;
             updateMessagesInSession(activeSession.id, messages => [...messages, { role: Role.ERROR, content: finalError }]);
             setError(finalError);
-        } finally {
-            setIsLoading(false);
-            setGenerationType(null);
         }
     }, [activeSession]);
 
     const handleSendMessage = useCallback(async (text: string) => {
-        if (isLoading || !text.trim() || !activeSession) return;
+        if (isLoading || isStreaming || !text.trim() || !activeSession) return;
 
         setIsLoading(true);
         setError(null);
@@ -592,38 +585,54 @@ const App: React.FC = () => {
         const isNewChat = activeSession.messages.length === 1;
         const trimmedText = text.trim();
 
-        if (trimmedText.toLowerCase().startsWith('/imagine ')) {
-            if (activeProvider === Provider.Gemini) {
-                const prompt = trimmedText.substring(8).trim();
-                await handleImageGeneration(prompt);
-            } else {
-                const errMessage = { role: Role.ERROR, content: "Image generation is only available with the Gemini provider." };
-                updateMessagesInSession(activeSession.id, msgs => [...msgs, {role: Role.USER, content: trimmedText}, errMessage]);
-                setIsLoading(false);
-            }
-        } else {
-             switch(activeProvider) {
-                case Provider.Gemini:
-                    await handleChatStream(trimmedText);
-                    break;
-                case Provider.HuggingFace:
-                    await handleHuggingFaceStream(trimmedText);
-                    break;
-                case Provider.TogetherAI:
-                    await handleTogetherAIStream(trimmedText);
-                    break;
-            }
-        }
+        const controller = new AbortController();
+        streamControllerRef.current = controller;
 
-        if (isNewChat && activeProvider === Provider.Gemini) {
-            const newTitle = await generateTitle(trimmedText);
-            setSessions(prev => {
-                const newAgentSessions = prev[activeAgent].map(s => s.id === activeSession.id ? { ...s, title: newTitle } : s);
-                return { ...prev, [activeAgent]: newAgentSessions };
-            });
-        }
-    }, [isLoading, activeProvider, activeAgent, activeSession, generateTitle, handleChatStream, handleImageGeneration, modelState]);
+        try {
+            if (trimmedText.toLowerCase().startsWith('/imagine ')) {
+                if (activeProvider === Provider.Gemini) {
+                    const prompt = trimmedText.substring(8).trim();
+                    await handleImageGeneration(prompt);
+                } else {
+                    const errMessage = { role: Role.ERROR, content: "Image generation is only available with the Gemini provider." };
+                    updateMessagesInSession(activeSession.id, msgs => [...msgs, {role: Role.USER, content: trimmedText}, errMessage]);
+                }
+            } else {
+                 setIsStreaming(true);
+                 switch(activeProvider) {
+                    case Provider.Gemini:
+                        await handleChatStream(trimmedText, controller.signal);
+                        break;
+                    case Provider.HuggingFace:
+                        await handleHuggingFaceStream(trimmedText, controller.signal);
+                        break;
+                    case Provider.TogetherAI:
+                        await handleTogetherAIStream(trimmedText, controller.signal);
+                        break;
+                }
+            }
     
+            if (isNewChat && activeProvider === Provider.Gemini) {
+                const newTitle = await generateTitle(trimmedText);
+                setSessions(prev => {
+                    const newAgentSessions = prev[activeAgent].map(s => s.id === activeSession.id ? { ...s, title: newTitle } : s);
+                    return { ...prev, [activeAgent]: newAgentSessions };
+                });
+            }
+        } finally {
+            setIsLoading(false);
+            setIsStreaming(false);
+            setGenerationType(null);
+            streamControllerRef.current = null;
+        }
+    }, [isLoading, isStreaming, activeProvider, activeAgent, activeSession, generateTitle, handleChatStream, handleImageGeneration, modelState]);
+    
+    const handleStopGeneration = useCallback(() => {
+        if (streamControllerRef.current) {
+            streamControllerRef.current.abort();
+        }
+    }, []);
+
     const handleNewChat = useCallback(() => {
         const agentForNewChat = activeProvider === Provider.Gemini ? activeAgent : Agent.Default;
         const newSession: ChatSession = {
@@ -644,17 +653,15 @@ const App: React.FC = () => {
     }, [activeAgent]);
 
     const handleDeleteSession = useCallback((sessionId: string) => {
+        chatInstancesRef.current.delete(sessionId);
         setSessions(prevSessions => {
             const currentAgentSessions = prevSessions[activeAgent] || [];
             const newAgentSessions = currentAgentSessions.filter(s => s.id !== sessionId);
 
             if (activeSessionId === sessionId) {
-                // The active session was deleted
                 if (newAgentSessions.length > 0) {
-                    // There are other sessions left, make the first one active
                     setActiveSessionIds(prevIds => ({ ...prevIds, [activeAgent]: newAgentSessions[0].id }));
                 } else {
-                    // No sessions left, create a new one
                     const agentForNewChat = activeProvider === Provider.Gemini ? activeAgent : Agent.Default;
                     const newSession: ChatSession = {
                         id: `chat-${Date.now()}`,
@@ -678,7 +685,6 @@ const App: React.FC = () => {
         if (!activeSession) return;
 
         const title = activeSession.title.replace(/\s/g, '_');
-        // FIX: Changed `new date()` to `new Date()`
         const timestamp = new Date().toISOString();
 
         const formattedContent = activeSession.messages.map(message => {
@@ -695,7 +701,7 @@ const App: React.FC = () => {
                 }
                 return content;
             }
-            return ''; // Ignore error messages or other types for export
+            return '';
         }).filter(Boolean).join('\n\n---\n\n');
 
         const blob = new Blob([formattedContent], { type: 'text/markdown;charset=utf-8' });
@@ -710,18 +716,20 @@ const App: React.FC = () => {
     }, [activeSession]);
 
     return (
-        <div className="flex h-screen bg-slate-900 font-sans text-white">
-            <HistorySidebar 
-                isOpen={isSidebarOpen}
-                sessions={sessions[activeAgent] || []}
-                activeSessionId={activeSessionId}
-                onSelectSession={handleSelectSession}
-                onNewChat={handleNewChat}
-                onDeleteSession={handleDeleteSession}
-                agent={activeAgent}
-                provider={activeProvider}
-            />
-            <div className="flex flex-col flex-1">
+        <div className="flex h-screen bg-gray-900 font-sans text-white">
+            <div className={`flex-shrink-0 bg-gray-800 transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-64' : 'w-0'}`}>
+                <HistorySidebar 
+                    isOpen={isSidebarOpen}
+                    sessions={sessions[activeAgent] || []}
+                    activeSessionId={activeSessionId}
+                    onSelectSession={handleSelectSession}
+                    onNewChat={handleNewChat}
+                    onDeleteSession={handleDeleteSession}
+                    agent={activeAgent}
+                    provider={activeProvider}
+                />
+            </div>
+            <div className="flex flex-col flex-1 min-w-0">
                 <Header 
                     onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
                     activeAgent={activeAgent} 
@@ -737,9 +745,17 @@ const App: React.FC = () => {
                     messages={activeSession?.messages || []} 
                     isLoading={isLoading} 
                     generationType={generationType} 
-                    activeAgent={activeAgent} 
+                    activeAgent={activeAgent}
+                    onSendMessage={handleSendMessage}
                 />
-                <UserInput onSendMessage={handleSendMessage} isLoading={isLoading} activeAgent={activeAgent} activeProvider={activeProvider} />
+                <UserInput 
+                    onSendMessage={handleSendMessage} 
+                    isLoading={isLoading} 
+                    isStreaming={isStreaming}
+                    onStopGeneration={handleStopGeneration}
+                    activeAgent={activeAgent} 
+                    activeProvider={activeProvider} 
+                />
             </div>
         </div>
     );

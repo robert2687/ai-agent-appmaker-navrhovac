@@ -19,8 +19,8 @@ const CodeBlock: React.FC<any> = ({ node, ...props }) => {
     };
     
     return (
-        <div className="my-4 rounded-lg bg-slate-900/70 relative font-sans">
-            <div className="flex items-center justify-between bg-slate-800 px-4 py-1.5 rounded-t-lg">
+        <div className="my-4 rounded-lg bg-gray-900/70 relative font-sans">
+            <div className="flex items-center justify-between bg-gray-800 px-4 py-1.5 rounded-t-lg">
                 <span className="text-xs text-slate-400">{language}</span>
                 <button
                     onClick={handleCopy}

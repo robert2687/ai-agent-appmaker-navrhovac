@@ -52,16 +52,11 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({
         });
     }, [sessions, searchTerm]);
 
-
-    if (!isOpen) {
-        return null;
-    }
-    
     const TitleIcon = provider === Provider.Gemini ? <AgentIcon agent={agent} /> : <BotIcon />;
     const titleText = provider === Provider.Gemini ? agent : provider;
 
     return (
-        <aside className="w-64 bg-slate-800 flex flex-col p-2 border-r border-slate-700/50">
+        <aside className={`w-64 flex flex-col p-2 h-full transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'}`}>
             <div className="flex items-center justify-between p-2 mb-2">
                 <div className="flex items-center gap-2">
                     {TitleIcon}
@@ -69,7 +64,7 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({
                 </div>
                 <button
                     onClick={onNewChat}
-                    className="p-2 rounded-full text-slate-400 hover:bg-slate-700 hover:text-slate-100 transition-colors"
+                    className="p-2 rounded-full text-slate-400 hover:bg-gray-700 hover:text-slate-100 transition-colors"
                     aria-label="New Chat"
                     title="New Chat"
                 >
@@ -85,7 +80,7 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({
                     placeholder="Search chats..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full bg-slate-700/50 border border-slate-600 rounded-md py-2 pl-10 pr-4 text-sm text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full bg-gray-700/50 border border-slate-600 rounded-md py-2 pl-10 pr-4 text-sm text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
                     aria-label="Search past chats"
                 />
             </div>
@@ -97,13 +92,13 @@ const HistorySidebar: React.FC<HistorySidebarProps> = ({
                         className={`group flex items-center justify-between w-full text-left p-2 rounded-md text-sm truncate cursor-pointer transition-colors ${
                             activeSessionId === session.id
                                 ? 'bg-blue-600 text-white'
-                                : 'text-slate-300 hover:bg-slate-700'
+                                : 'text-slate-300 hover:bg-gray-700'
                         }`}
                     >
-                        <span className="truncate">{session.title}</span>
+                        <span className="truncate flex-1">{session.title}</span>
                         <button
                             onClick={(e) => handleDelete(e, session.id)}
-                            className="p-1 rounded-full text-slate-400 opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-slate-600/50 transition-opacity"
+                            className="p-1 rounded-full text-slate-400 opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-slate-600/50 transition-opacity flex-shrink-0"
                             aria-label={`Delete chat "${session.title}"`}
                         >
                             <TrashIcon />

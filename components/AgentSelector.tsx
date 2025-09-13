@@ -32,7 +32,7 @@ const AgentSelector: React.FC<AgentSelectorProps> = ({ activeAgent, onAgentChang
         <div className="relative w-48" ref={wrapperRef}>
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center gap-2 w-full bg-slate-700 border border-slate-600 text-white text-sm rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none pl-3 pr-4 py-2 cursor-pointer text-left"
+                className="flex items-center gap-2 w-full bg-gray-700 border border-slate-600 text-white text-sm rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none pl-3 pr-4 py-2 cursor-pointer text-left"
                 aria-haspopup="listbox"
                 aria-expanded={isOpen}
                 aria-label="Select AI Agent"
@@ -49,7 +49,7 @@ const AgentSelector: React.FC<AgentSelectorProps> = ({ activeAgent, onAgentChang
 
             {isOpen && (
                 <ul
-                    className="absolute z-20 mt-1 w-full bg-slate-800 border border-slate-600 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+                    className="absolute z-20 mt-1 w-full bg-gray-800 border border-slate-600 rounded-lg shadow-lg max-h-60 overflow-y-auto"
                     role="listbox"
                 >
                     {Object.values(Agent).map(agent => (
@@ -59,7 +59,7 @@ const AgentSelector: React.FC<AgentSelectorProps> = ({ activeAgent, onAgentChang
                             className={`flex items-center gap-3 p-2 text-sm cursor-pointer transition-colors ${
                                 activeAgent === agent
                                     ? 'bg-blue-600/50 text-white'
-                                    : 'text-slate-200 hover:bg-slate-700'
+                                    : 'text-slate-200 hover:bg-gray-700'
                             }`}
                             role="option"
                             aria-selected={activeAgent === agent}

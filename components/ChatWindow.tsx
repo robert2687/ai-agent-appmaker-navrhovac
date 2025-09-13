@@ -3,15 +3,17 @@ import { Agent, Message as MessageType } from '../types';
 import Message from './Message';
 import TypingIndicator from './TypingIndicator';
 import ImageLoadingIndicator from './ImageLoadingIndicator';
+import WelcomeScreen from './WelcomeScreen';
 
 interface ChatWindowProps {
     messages: MessageType[];
     isLoading: boolean;
     generationType: 'text' | 'image' | null;
     activeAgent: Agent;
+    onSendMessage: (text: string) => void;
 }
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading, generationType, activeAgent }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading, generationType, activeAgent, onSendMessage }) => {
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {
@@ -22,15 +24,23 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading, generation
         scrollToBottom();
     }, [messages]);
 
+    const isNewChat = messages.length <= 1;
+
     return (
-        <main className="flex-1 overflow-y-auto p-6 space-y-6">
-            <div className="max-w-4xl mx-auto">
-                {messages.map((msg, index) => (
-                    <Message key={index} message={msg} />
-                ))}
-                {isLoading && generationType === 'text' && <TypingIndicator agent={activeAgent} />}
-                {isLoading && generationType === 'image' && <ImageLoadingIndicator />}
-                <div ref={messagesEndRef} />
+        <main className="flex-1 overflow-y-auto p-6">
+            <div className="max-w-4xl mx-auto h-full">
+                {isNewChat ? (
+                    <WelcomeScreen activeAgent={activeAgent} onPromptClick={onSendMessage} />
+                ) : (
+                    <>
+                        {messages.map((msg, index) => (
+                            <Message key={index} message={msg} />
+                        ))}
+                        {isLoading && generationType === 'text' && <TypingIndicator agent={activeAgent} />}
+                        {isLoading && generationType === 'image' && <ImageLoadingIndicator />}
+                        <div ref={messagesEndRef} />
+                    </>
+                )}
             </div>
         </main>
     );

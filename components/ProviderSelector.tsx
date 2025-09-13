@@ -16,7 +16,7 @@ const ProviderSelector: React.FC<ProviderSelectorProps> = ({ activeProvider, onP
             <select
                 value={activeProvider}
                 onChange={handleSelectChange}
-                className="appearance-none bg-slate-700 border border-slate-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-3 pr-8 py-2 cursor-pointer"
+                className="appearance-none bg-gray-700 border border-slate-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-3 pr-8 py-2 cursor-pointer"
                 aria-label="Select AI Provider"
             >
                 {Object.values(Provider).map(provider => (

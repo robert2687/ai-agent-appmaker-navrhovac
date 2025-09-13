@@ -1,10 +1,13 @@
 import React, { useState, KeyboardEvent, useRef, useEffect } from 'react';
 import { Agent, Provider } from '../types';
 import SendIcon from './icons/SendIcon';
+import StopIcon from './icons/StopIcon';
 
 interface UserInputProps {
     onSendMessage: (text: string) => void;
     isLoading: boolean;
+    isStreaming: boolean;
+    onStopGeneration: () => void;
     activeAgent: Agent;
     activeProvider: Provider;
 }
@@ -21,7 +24,7 @@ const geminiPlaceholders: Record<Agent, string> = {
     [Agent.CodeCanvas]: "e.g., How can I visualize the dependencies in my project?",
 };
 
-const UserInput: React.FC<UserInputProps> = ({ onSendMessage, isLoading, activeAgent, activeProvider }) => {
+const UserInput: React.FC<UserInputProps> = ({ onSendMessage, isLoading, isStreaming, onStopGeneration, activeAgent, activeProvider }) => {
     const [text, setText] = useState('');
     const textAreaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -56,7 +59,7 @@ const UserInput: React.FC<UserInputProps> = ({ onSendMessage, isLoading, activeA
     }, [text]);
 
     return (
-        <footer className="bg-slate-800/70 backdrop-blur-sm border-t border-slate-700 p-4">
+        <footer className="bg-gray-800/70 backdrop-blur-sm border-t border-gray-700 p-4">
             <div className="max-w-4xl mx-auto flex items-start gap-4">
                 <textarea
                     ref={textAreaRef}
@@ -64,20 +67,31 @@ const UserInput: React.FC<UserInputProps> = ({ onSendMessage, isLoading, activeA
                     onChange={(e) => setText(e.target.value)}
                     onKeyPress={handleKeyPress}
                     placeholder={getPlaceholder()}
-                    className="flex-1 bg-slate-900 border border-slate-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none transition-all duration-200 disabled:opacity-50"
+                    className="flex-1 bg-gray-900 border border-slate-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none transition-all duration-200 disabled:opacity-50"
                     rows={1}
                     style={{ maxHeight: '200px' }}
                     disabled={isLoading}
                     aria-label="Chat input"
                 />
-                <button
-                    onClick={handleSend}
-                    disabled={isLoading || !text.trim()}
-                    className="bg-blue-600 text-white rounded-full p-3 hover:bg-blue-500 disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors duration-200 flex-shrink-0 self-end"
-                    aria-label="Send message"
-                >
-                    <SendIcon />
-                </button>
+                {isStreaming ? (
+                    <button
+                        onClick={onStopGeneration}
+                        className="bg-red-600 text-white rounded-full p-3 hover:bg-red-500 disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors duration-200 flex-shrink-0 self-end"
+                        aria-label="Stop generating"
+                        title="Stop generating"
+                    >
+                        <StopIcon />
+                    </button>
+                ) : (
+                    <button
+                        onClick={handleSend}
+                        disabled={isLoading || !text.trim()}
+                        className="bg-blue-600 text-white rounded-full p-3 hover:bg-blue-500 disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors duration-200 flex-shrink-0 self-end"
+                        aria-label="Send message"
+                    >
+                        <SendIcon />
+                    </button>
+                )}
             </div>
         </footer>
     );
