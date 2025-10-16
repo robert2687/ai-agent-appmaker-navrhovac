@@ -6,17 +6,36 @@ import AgentIcon from './AgentIcon';
 import BotIcon from './icons/BotIcon';
 import SearchIcon from './icons/SearchIcon';
 
+/**
+ * @interface HistorySidebarProps
+ * @description Props for the HistorySidebar component.
+ */
 interface HistorySidebarProps {
+    /** Whether the sidebar is currently visible. */
     isOpen: boolean;
+    /** An array of chat sessions to display. */
     sessions: ChatSession[];
+    /** The ID of the currently active chat session. */
     activeSessionId: string | null;
+    /** Callback function to select a chat session. */
     onSelectSession: (id: string) => void;
+    /** Callback function to create a new chat. */
     onNewChat: () => void;
+    /** Callback function to delete a chat session. */
     onDeleteSession: (id: string) => void;
+    /** The currently active agent, used for displaying the correct title icon. */
     agent: Agent;
+    /** The currently active provider, used for displaying the correct title. */
     provider: Provider;
 }
 
+/**
+ * A sidebar component that displays a searchable list of past chat sessions.
+ * It allows users to start a new chat, switch between sessions, and delete sessions.
+ *
+ * @param {HistorySidebarProps} props The props for the component.
+ * @returns {React.ReactElement} The rendered history sidebar.
+ */
 const HistorySidebar: React.FC<HistorySidebarProps> = ({
     isOpen,
     sessions,

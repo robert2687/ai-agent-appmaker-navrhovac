@@ -2,11 +2,24 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Agent } from '../types';
 import AgentIcon from './AgentIcon';
 
+/**
+ * @interface AgentSelectorProps
+ * @description Props for the AgentSelector component.
+ */
 interface AgentSelectorProps {
+    /** The currently selected agent. */
     activeAgent: Agent;
+    /** Callback function to be invoked when a new agent is selected. */
     onAgentChange: (agent: Agent) => void;
 }
 
+/**
+ * A dropdown component for selecting the active AI agent.
+ * It displays the current agent and allows the user to choose from a list of all available agents.
+ *
+ * @param {AgentSelectorProps} props The props for the component.
+ * @returns {React.ReactElement} The rendered agent selector dropdown.
+ */
 const AgentSelector: React.FC<AgentSelectorProps> = ({ activeAgent, onAgentChange }) => {
     const [isOpen, setIsOpen] = useState(false);
     const wrapperRef = useRef<HTMLDivElement>(null);

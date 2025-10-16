@@ -1,11 +1,23 @@
 import React from 'react';
 import { Provider } from '../types';
 
+/**
+ * @interface ProviderSelectorProps
+ * @description Props for the ProviderSelector component.
+ */
 interface ProviderSelectorProps {
+    /** The currently selected AI provider. */
     activeProvider: Provider;
+    /** Callback function to be invoked when a new provider is selected. */
     onProviderChange: (provider: Provider) => void;
 }
 
+/**
+ * A dropdown component for selecting the AI provider (e.g., Gemini, Hugging Face).
+ *
+ * @param {ProviderSelectorProps} props The props for the component.
+ * @returns {React.ReactElement} The rendered provider selector dropdown.
+ */
 const ProviderSelector: React.FC<ProviderSelectorProps> = ({ activeProvider, onProviderChange }) => {
     const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         onProviderChange(e.target.value as Provider);

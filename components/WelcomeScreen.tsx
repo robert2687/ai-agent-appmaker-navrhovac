@@ -2,11 +2,21 @@ import React from 'react';
 import { Agent } from '../types';
 import AgentIcon from './AgentIcon';
 
+/**
+ * @interface WelcomeScreenProps
+ * @description Props for the WelcomeScreen component.
+ */
 interface WelcomeScreenProps {
+    /** The currently active agent, used to display relevant UI and suggestions. */
     activeAgent: Agent;
+    /** Callback function to send a message when a prompt suggestion is clicked. */
     onPromptClick: (prompt: string) => void;
 }
 
+/**
+ * A mapping of agents to their specific prompt suggestions.
+ * @type {Record<Agent, string[]>}
+ */
 const agentPromptSuggestions: Record<Agent, string[]> = {
     [Agent.Default]: [
         "Explain quantum computing in simple terms",

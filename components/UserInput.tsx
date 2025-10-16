@@ -3,15 +3,29 @@ import { Agent, Provider } from '../types';
 import SendIcon from './icons/SendIcon';
 import StopIcon from './icons/StopIcon';
 
+/**
+ * @interface UserInputProps
+ * @description Props for the UserInput component.
+ */
 interface UserInputProps {
+    /** Callback function to send a message. */
     onSendMessage: (text: string) => void;
+    /** Boolean indicating if a message is currently being sent or generated. */
     isLoading: boolean;
+    /** Boolean indicating if a response is currently being streamed. */
     isStreaming: boolean;
+    /** Callback function to stop a streaming generation. */
     onStopGeneration: () => void;
+    /** The currently active AI agent, used for placeholder text. */
     activeAgent: Agent;
+    /** The currently active AI provider, used for placeholder text. */
     activeProvider: Provider;
 }
 
+/**
+ * A mapping of agents to their specific placeholder text for the Gemini provider.
+ * @type {Record<Agent, string>}
+ */
 const geminiPlaceholders: Record<Agent, string> = {
     [Agent.Default]: "Type a message or /imagine <prompt>...",
     [Agent.SystemsArchitect]: "e.g., I want to build an AI fitness trainer",

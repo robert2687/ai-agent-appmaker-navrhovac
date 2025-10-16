@@ -2,10 +2,22 @@ import React from 'react';
 import AgentIcon from './AgentIcon';
 import { Agent } from '../types';
 
+/**
+ * @interface TypingIndicatorProps
+ * @description Props for the TypingIndicator component.
+ */
 interface TypingIndicatorProps {
+    /** The agent that is "typing", used to display the correct icon. */
     agent: Agent;
 }
 
+/**
+ * A component that displays a typing animation to indicate that the AI is generating a response.
+ * It consists of the agent's icon followed by three bouncing dots.
+ *
+ * @param {TypingIndicatorProps} props The props for the component.
+ * @returns {React.ReactElement} The rendered typing indicator.
+ */
 const TypingIndicator: React.FC<TypingIndicatorProps> = ({ agent }) => {
     return (
         <div className="flex items-start gap-3 my-4 justify-start">

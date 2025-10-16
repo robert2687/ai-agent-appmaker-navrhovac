@@ -3,6 +3,12 @@ import React from 'react';
 import BotIcon from './icons/BotIcon';
 import ImageIcon from './icons/ImageIcon';
 
+/**
+ * A component that displays a loading indicator specifically for image generation.
+ * It shows an icon, a "Generating image..." message, and an animated ellipsis.
+ *
+ * @returns {React.ReactElement} The rendered image loading indicator.
+ */
 const ImageLoadingIndicator: React.FC = () => {
     return (
         <div className="flex items-start gap-3 my-4 justify-start" aria-label="Generating image">

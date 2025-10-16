@@ -2,9 +2,17 @@ import React, { useState } from 'react';
 import CopyIcon from './icons/CopyIcon';
 import CheckIcon from './icons/CheckIcon';
 
+/**
+ * A component for rendering syntax-highlighted code blocks with a copy button.
+ * This component is designed to be used with `react-markdown` as a custom renderer for `pre` tags.
+ *
+ * @param {object} props The props passed by `react-markdown`.
+ * @param {object} props.node The markdown AST node for the code block.
+ * @returns {React.ReactElement} The rendered code block component.
+ */
 const CodeBlock: React.FC<any> = ({ node, ...props }) => {
     const [isCopied, setIsCopied] = useState(false);
-    
+
     // Extract code string and language from the markdown node
     const codeNode = node?.children?.[0];
     const codeString = codeNode?.children?.[0]?.value ?? '';

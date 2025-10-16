@@ -7,17 +7,37 @@ import ProviderSelector from './ProviderSelector';
 import ModelInput from './ModelInput';
 import DownloadIcon from './icons/DownloadIcon';
 
+/**
+ * @interface HeaderProps
+ * @description Props for the Header component.
+ */
 interface HeaderProps {
+    /** The currently active AI agent. */
     activeAgent: Agent;
+    /** Callback function for when the agent is changed. */
     onAgentChange: (agent: Agent) => void;
+    /** Callback function to toggle the visibility of the history sidebar. */
     onToggleSidebar: () => void;
+    /** The currently active AI provider. */
     activeProvider: Provider;
+    /** Callback function for when the provider is changed. */
     onProviderChange: (provider: Provider) => void;
+    /** A record of the currently selected model for each provider. */
     modelState: Record<string, string>;
+    /** Callback function for when a provider's model is changed. */
     onModelChange: (provider: Provider, model: string) => void;
+    /** Callback function to trigger the export of the current chat. */
     onExportChat: () => void;
 }
 
+/**
+ * The main header component for the application.
+ * It contains controls for toggling the sidebar, selecting the AI provider and agent,
+ * changing the model, and exporting the chat.
+ *
+ * @param {HeaderProps} props The props for the component.
+ * @returns {React.ReactElement} The rendered header.
+ */
 const Header: React.FC<HeaderProps> = ({ 
     activeAgent, 
     onAgentChange, 
