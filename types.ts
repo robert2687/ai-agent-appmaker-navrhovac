@@ -34,3 +34,38 @@ export interface ChatSession {
     title: string;
     messages: Message[];
 }
+
+// ===== Integrations =====
+export enum IntegrationCategory {
+    Communication = 'Communication',
+    Development = 'Development',
+    Design = 'Design',
+    Support = 'Support',
+    AIAgents = 'AI Agents',
+}
+
+export interface IntegrationCredentialField {
+    key: string; // key used in credentials object
+    label: string;
+    type?: 'text' | 'password' | 'token' | 'url';
+    required?: boolean;
+    placeholder?: string;
+    help?: string;
+}
+
+export interface IntegrationDefinition {
+    id: string;
+    name: string;
+    description: string;
+    category: IntegrationCategory;
+    fields: IntegrationCredentialField[];
+    badge?: string; // optional badge/tag text
+}
+
+export interface IntegrationConfig {
+    id: string;
+    enabled: boolean;
+    credentials: Record<string, string>; // decrypted in-memory
+    lastTestedAt?: number;
+    lastTestResult?: 'connected' | 'failed';
+}
