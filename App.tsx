@@ -241,13 +241,22 @@ const getInitialStateForProvider = (provider: Provider) => {
 };
 
 
+/**
+ * The main application component. It orchestrates the entire chat application,
+ * managing state for providers, agents, chat sessions, and user interactions.
+ * It handles API calls, state persistence to localStorage, and renders all sub-components.
+ *
+ * @returns {React.ReactElement} The rendered application.
+ */
 const App: React.FC = () => {
+    // UI and loading state
     const [isLoading, setIsLoading] = useState(false);
     const [isStreaming, setIsStreaming] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [generationType, setGenerationType] = useState<'text' | 'image' | null>(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
+    // Core application state
     const [activeProvider, setActiveProvider] = useState<Provider>(Provider.Gemini);
     const [activeAgent, setActiveAgent] = useState<Agent>(Agent.Default);
     const [modelState, setModelState] = useState<Record<string, string>>({
@@ -256,10 +265,16 @@ const App: React.FC = () => {
       [Provider.TogetherAI]: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
     });
     
+    // State for chat sessions, managed per provider
     const initialState = getInitialStateForProvider(activeProvider);
     const [sessions, setSessions] = useState<Record<Agent, ChatSession[]>>(initialState.sessions);
     const [activeSessionIds, setActiveSessionIds] = useState<Record<Agent, string>>(initialState.activeSessionIds);
     
+    /**
+     * Updates the selected model for a given provider.
+     * @param {Provider} provider The provider whose model is being changed.
+     * @param {string} newModel The new model identifier.
+     */
     const handleModelChange = (provider: Provider, newModel: string) => {
         setModelState(prevState => ({
             ...prevState,
@@ -267,13 +282,17 @@ const App: React.FC = () => {
         }));
     };
 
+    // Refs for managing API clients, state, and streaming
     const aiRef = useRef<GoogleGenAI | null>(null);
     const previousProviderRef = useRef(activeProvider);
     const autosaveStateRef = useRef({ sessions, activeSessionIds, activeProvider });
     const chatInstancesRef = useRef<Map<string, Chat>>(new Map());
     const streamControllerRef = useRef<AbortController | null>(null);
 
-
+    /**
+     * Effect hook to initialize or update the AI client when the active provider changes.
+     * It handles API key validation and sets up the appropriate client.
+     */
     useEffect(() => {
         setError(null); // Clear previous errors on provider change
 
@@ -305,6 +324,10 @@ const App: React.FC = () => {
         }
     }, [activeProvider]);
 
+    /**
+     * Effect hook to save and restore chat state when the provider changes.
+     * This ensures that each provider has its own separate chat history.
+     */
     useEffect(() => {
         const previousProvider = previousProviderRef.current;
         if (previousProvider !== activeProvider) {
@@ -330,7 +353,10 @@ const App: React.FC = () => {
         }
     }, [activeProvider, sessions, activeSessionIds]);
 
-    // Save state to localStorage on every change.
+    /**
+     * Effect hook to save the current chat state to localStorage whenever it changes.
+     * This provides real-time persistence of the user's conversations.
+     */
     useEffect(() => {
         try {
             localStorage.setItem(`chatState-${activeProvider}`, JSON.stringify({ sessions, activeSessionIds }));
@@ -339,11 +365,18 @@ const App: React.FC = () => {
         }
     }, [sessions, activeSessionIds, activeProvider]);
 
-    // Autosave chat state at regular intervals as a fallback.
+    /**
+     * Effect hook to update a ref with the latest state for the autosave interval.
+     * This avoids the interval closure capturing stale state.
+     */
     useEffect(() => {
         autosaveStateRef.current = { sessions, activeSessionIds, activeProvider };
     }, [sessions, activeSessionIds, activeProvider]);
 
+    /**
+     * Effect hook to set up a periodic autosave to localStorage as a fallback mechanism.
+     * This helps prevent data loss in case of unexpected issues.
+     */
     useEffect(() => {
         const AUTOSAVE_INTERVAL_MS = 15000; // 15 seconds
 
@@ -362,6 +395,12 @@ const App: React.FC = () => {
     const activeSessionId = activeSessionIds[activeAgent];
     const activeSession = sessions[activeAgent]?.find(s => s.id === activeSessionId);
 
+    /**
+     * A utility function to update the messages array of a specific session.
+     *
+     * @param {string} sessionId The ID of the session to update.
+     * @param {(messages: Message[]) => Message[]} updateFn A function that receives the current messages and returns the updated messages.
+     */
     const updateMessagesInSession = (sessionId: string, updateFn: (messages: Message[]) => Message[]) => {
         setSessions(prev => {
             const agentSessions = prev[activeAgent];
@@ -378,6 +417,12 @@ const App: React.FC = () => {
         });
     };
     
+    /**
+     * Generates a concise title for a new chat session based on the initial user prompt.
+     *
+     * @param {string} prompt The initial user message.
+     * @returns {Promise<string>} A promise that resolves to the generated title.
+     */
     const generateTitle = useCallback(async (prompt: string): Promise<string> => {
         if (!aiRef.current) return 'New Chat';
         try {
@@ -393,6 +438,19 @@ const App: React.FC = () => {
         }
     }, []);
 
+    /**
+     * A generic function to handle streaming responses from various providers.
+     * It manages the fetch request, reads the stream, parses chunks, and updates the UI.
+     *
+     * @param {string} text The user's input text.
+     * @param {Provider} provider The AI provider being used.
+     * @param {string} model The specific model to use.
+     * @param {string | undefined} apiKey The API key for the provider.
+     * @param {string} url The API endpoint URL.
+     * @param {object} body The request body.
+     * @param {(chunk: any) => string} parseChunk A function to parse the content from a stream chunk.
+     * @param {AbortSignal} signal An AbortSignal to cancel the request.
+     */
     const handleGenericStream = async (text: string, provider: Provider, model: string, apiKey: string | undefined, url: string, body: object, parseChunk: (chunk: any) => string, signal: AbortSignal) => {
         if (!apiKey) {
             setError(`${provider} API key not set.`);
@@ -462,6 +520,11 @@ const App: React.FC = () => {
         }
     };
 
+    /**
+     * Handles sending a request and processing the response stream from the Hugging Face API.
+     * @param {string} text The user's input text.
+     * @param {AbortSignal} signal An AbortSignal to cancel the request.
+     */
     const handleHuggingFaceStream = (text: string, signal: AbortSignal) => {
         const model = modelState[Provider.HuggingFace];
         const apiKey = process.env.HUGGING_FACE_TOKEN;
@@ -474,6 +537,11 @@ const App: React.FC = () => {
         );
     };
 
+    /**
+     * Handles sending a request and processing the response stream from the Together.AI API.
+     * @param {string} text The user's input text.
+     * @param {AbortSignal} signal An AbortSignal to cancel the request.
+     */
     const handleTogetherAIStream = (text: string, signal: AbortSignal) => {
         const model = modelState[Provider.TogetherAI];
         const apiKey = process.env.TOGETHER_API_KEY;
@@ -487,6 +555,13 @@ const App: React.FC = () => {
         );
     };
 
+    /**
+     * Handles sending a request and processing the response stream from the Gemini API.
+     * It manages the chat history and streams the response back to the UI.
+     *
+     * @param {string} text The user's input text.
+     * @param {AbortSignal} signal An AbortSignal to cancel the request.
+     */
     const handleChatStream = useCallback(async (text: string, signal: AbortSignal) => {
         const ai = aiRef.current;
         if (!ai || !activeSession) {
@@ -545,6 +620,12 @@ const App: React.FC = () => {
         }
     }, [activeAgent, activeSession, modelState]);
 
+    /**
+     * Handles requests for image generation using the Gemini API.
+     * It updates the UI with the generated images upon success.
+     *
+     * @param {string} prompt The user's prompt for image generation.
+     */
     const handleImageGeneration = useCallback(async (prompt: string) => {
         if (!aiRef.current || !activeSession) {
             setError("AI Client is not initialized.");
@@ -576,6 +657,13 @@ const App: React.FC = () => {
         }
     }, [activeSession]);
 
+    /**
+     * The primary function for sending a user's message.
+     * It determines whether the request is for text or image generation and calls the appropriate handler.
+     * It also triggers title generation for new chats.
+     *
+     * @param {string} text The user's input message.
+     */
     const handleSendMessage = useCallback(async (text: string) => {
         if (isLoading || isStreaming || !text.trim() || !activeSession) return;
 
@@ -627,12 +715,18 @@ const App: React.FC = () => {
         }
     }, [isLoading, isStreaming, activeProvider, activeAgent, activeSession, generateTitle, handleChatStream, handleImageGeneration, modelState]);
     
+    /**
+     * Aborts the current in-progress streaming request.
+     */
     const handleStopGeneration = useCallback(() => {
         if (streamControllerRef.current) {
             streamControllerRef.current.abort();
         }
     }, []);
 
+    /**
+     * Creates a new, empty chat session and sets it as the active session.
+     */
     const handleNewChat = useCallback(() => {
         const agentForNewChat = activeProvider === Provider.Gemini ? activeAgent : Agent.Default;
         const newSession: ChatSession = {
@@ -648,10 +742,19 @@ const App: React.FC = () => {
         setActiveSessionIds(prev => ({ ...prev, [agentForNewChat]: newSession.id }));
     }, [activeProvider, activeAgent]);
     
+    /**
+     * Sets the specified session as the active one.
+     * @param {string} sessionId The ID of the session to select.
+     */
     const handleSelectSession = useCallback((sessionId: string) => {
         setActiveSessionIds(prev => ({ ...prev, [activeAgent]: sessionId }));
     }, [activeAgent]);
 
+    /**
+     * Deletes a session from the state and localStorage.
+     * If the deleted session was active, it selects the next available session.
+     * @param {string} sessionId The ID of the session to delete.
+     */
     const handleDeleteSession = useCallback((sessionId: string) => {
         chatInstancesRef.current.delete(sessionId);
         setSessions(prevSessions => {
@@ -681,6 +784,10 @@ const App: React.FC = () => {
         });
     }, [activeAgent, activeSessionId, activeProvider]);
 
+    /**
+     * Exports the active chat session to a markdown file.
+     * The file includes all user and model messages in a readable format.
+     */
     const handleExportChat = useCallback(() => {
         if (!activeSession) return;
 

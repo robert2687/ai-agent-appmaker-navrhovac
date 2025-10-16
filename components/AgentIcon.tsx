@@ -10,10 +10,21 @@ import SummarizerIcon from './icons/SummarizerIcon';
 import AppPreviewerIcon from './icons/AppPreviewerIcon';
 import CodeCanvasIcon from './icons/CodeCanvasIcon';
 
+/**
+ * @interface AgentIconProps
+ * @description Props for the AgentIcon component.
+ */
 interface AgentIconProps {
+    /** The agent for which to display an icon. If undefined, the default icon is shown. */
     agent?: Agent;
 }
 
+/**
+ * A component that displays an icon corresponding to a specific AI agent.
+ *
+ * @param {AgentIconProps} props The props for the component.
+ * @returns {React.ReactElement} The icon component for the specified agent.
+ */
 const AgentIcon: React.FC<AgentIconProps> = ({ agent }) => {
     switch (agent) {
         case Agent.SystemsArchitect:

@@ -5,14 +5,31 @@ import TypingIndicator from './TypingIndicator';
 import ImageLoadingIndicator from './ImageLoadingIndicator';
 import WelcomeScreen from './WelcomeScreen';
 
+/**
+ * @interface ChatWindowProps
+ * @description Props for the ChatWindow component.
+ */
 interface ChatWindowProps {
+    /** An array of messages to be displayed in the chat window. */
     messages: MessageType[];
+    /** A boolean indicating if a response is currently being loaded. */
     isLoading: boolean;
+    /** The type of content being generated ('text' or 'image'), or null. */
     generationType: 'text' | 'image' | null;
+    /** The currently active AI agent. */
     activeAgent: Agent;
+    /** Callback function to send a message, used by the WelcomeScreen's prompt examples. */
     onSendMessage: (text: string) => void;
 }
 
+/**
+ * The main chat interface where messages are displayed.
+ * It handles rendering the list of messages, showing loading indicators,
+ * and displaying a welcome screen for new chats.
+ *
+ * @param {ChatWindowProps} props The props for the component.
+ * @returns {React.ReactElement} The rendered chat window.
+ */
 const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading, generationType, activeAgent, onSendMessage }) => {
     const messagesEndRef = useRef<HTMLDivElement>(null);
 

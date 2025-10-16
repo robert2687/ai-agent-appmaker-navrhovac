@@ -12,10 +12,23 @@ import CopyIcon from './icons/CopyIcon';
 import CheckIcon from './icons/CheckIcon';
 
 
+/**
+ * @interface MessageProps
+ * @description Props for the Message component.
+ */
 interface MessageProps {
+    /** The message object to display. */
     message: MessageType;
 }
 
+/**
+ * A component that renders a single chat message.
+ * It handles different message roles (user, model, error), content types (text, images),
+ * and provides actions like copying and downloading message content.
+ *
+ * @param {MessageProps} props The props for the component.
+ * @returns {React.ReactElement} The rendered message bubble.
+ */
 const Message: React.FC<MessageProps> = ({ message }) => {
     const [isCopied, setIsCopied] = useState(false);
     const isUser = message.role === Role.USER;

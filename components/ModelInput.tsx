@@ -1,13 +1,23 @@
 import React from 'react';
 import { Provider } from '../types';
 
+/**
+ * @interface ModelInputProps
+ * @description Props for the ModelInput component.
+ */
 interface ModelInputProps {
+    /** The currently selected model identifier. */
     model: string;
+    /** Callback function to update the model. */
     setModel: (model: string) => void;
+    /** The provider for which to display models. */
     provider: Provider;
 }
 
-// Model lists for selection
+/**
+ * A mapping of providers to their available model identifiers.
+ * @type {Record<string, string[]>}
+ */
 const providerModels: Record<string, string[]> = {
     [Provider.Gemini]: [
         'gemini-2.5-flash',
