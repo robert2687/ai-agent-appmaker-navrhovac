@@ -1,12 +1,13 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { GoogleGenAI, Chat } from '@google/genai';
-import { Message, Role, Agent, ChatSession, Provider } from './types';
+import { Message, Role, Agent, ChatSession, Provider, IntegrationConfig } from './types';
 import Header from './components/Header';
 import ChatWindow from './components/ChatWindow';
 import UserInput from './components/UserInput';
 import ErrorDisplay from './components/ErrorDisplay';
 import HistorySidebar from './components/HistorySidebar';
+import IntegrationsPanel, { INTEGRATIONS_STORAGE_KEY } from './components/IntegrationsPanel';
 
 const agentSystemInstructions: Record<Agent, string> = {
     [Agent.Default]: 'You are a helpful and friendly AI assistant. Answer user queries clearly and concisely. Use markdown for formatting when it improves readability.',
@@ -240,6 +241,57 @@ const getInitialStateForProvider = (provider: Provider) => {
     return { sessions, activeSessionIds };
 };
 
+// ========== Integrations storage helpers ==========
+const safeBtoa = (s: string) => {
+    try { return btoa(unescape(encodeURIComponent(s))); } catch { return s; }
+};
+const safeAtob = (s: string) => {
+    try { return decodeURIComponent(escape(atob(s))); } catch { return s; }
+};
+
+const encodeCredentials = (creds: Record<string, string>) => {
+    const out: Record<string,string> = {};
+    for (const [k,v] of Object.entries(creds || {})) {
+        out[k] = v ? `b64:${safeBtoa(v)}` : '';
+    }
+    return out;
+};
+const decodeCredentials = (creds: Record<string, string>) => {
+    const out: Record<string,string> = {};
+    for (const [k,v] of Object.entries(creds || {})) {
+        out[k] = v && v.startsWith('b64:') ? safeAtob(v.slice(4)) : (v || '');
+    }
+    return out;
+};
+
+const loadIntegrationsFromStorage = (): Record<string, IntegrationConfig> => {
+    try {
+        const raw = localStorage.getItem(INTEGRATIONS_STORAGE_KEY);
+        if (!raw) return {};
+        const parsed = JSON.parse(raw) as Record<string, IntegrationConfig>;
+        const result: Record<string, IntegrationConfig> = {};
+        for (const [id, cfg] of Object.entries(parsed)) {
+            result[id] = { ...cfg, credentials: decodeCredentials(cfg.credentials) };
+        }
+        return result;
+    } catch (e) {
+        console.warn('Failed to load integrations config:', e);
+        return {};
+    }
+};
+
+const saveIntegrationsToStorage = (configs: Record<string, IntegrationConfig>) => {
+    try {
+        const serializable: Record<string, IntegrationConfig> = {} as any;
+        for (const [id, cfg] of Object.entries(configs || {})) {
+            serializable[id] = { ...cfg, credentials: encodeCredentials(cfg.credentials) };
+        }
+        localStorage.setItem(INTEGRATIONS_STORAGE_KEY, JSON.stringify(serializable));
+    } catch (e) {
+        console.warn('Failed to save integrations config:', e);
+    }
+};
+
 
 const App: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
@@ -247,6 +299,8 @@ const App: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [generationType, setGenerationType] = useState<'text' | 'image' | null>(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [isIntegrationsOpen, setIsIntegrationsOpen] = useState(false);
+    const [integrations, setIntegrations] = useState<Record<string, IntegrationConfig>>(() => loadIntegrationsFromStorage());
 
     const [activeProvider, setActiveProvider] = useState<Provider>(Provider.Gemini);
     const [activeAgent, setActiveAgent] = useState<Agent>(Agent.Default);
@@ -255,10 +309,14 @@ const App: React.FC = () => {
       [Provider.HuggingFace]: 'mistralai/Mistral-7B-Instruct-v0.2',
       [Provider.TogetherAI]: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
     });
-    
+
     const initialState = getInitialStateForProvider(activeProvider);
     const [sessions, setSessions] = useState<Record<Agent, ChatSession[]>>(initialState.sessions);
     const [activeSessionIds, setActiveSessionIds] = useState<Record<Agent, string>>(initialState.activeSessionIds);
+
+    useEffect(() => {
+        saveIntegrationsToStorage(integrations);
+    }, [integrations]);
     
     const handleModelChange = (provider: Provider, newModel: string) => {
         setModelState(prevState => ({
@@ -739,6 +797,7 @@ const App: React.FC = () => {
                     modelState={modelState}
                     onModelChange={handleModelChange}
                     onExportChat={handleExportChat}
+                    onOpenIntegrations={() => setIsIntegrationsOpen(true)}
                 />
                 {error && !activeSession?.messages.some(m => m.role === Role.ERROR) && <ErrorDisplay message={error} />}
                 <ChatWindow 
@@ -756,9 +815,15 @@ const App: React.FC = () => {
                     activeAgent={activeAgent} 
                     activeProvider={activeProvider} 
                 />
+            <IntegrationsPanel
+                isOpen={isIntegrationsOpen}
+                onClose={() => setIsIntegrationsOpen(false)}
+                configs={integrations}
+                onChange={setIntegrations}
+            />
             </div>
-        </div>
-    );
-};
+            </div>
+            );
+            };
 
 export default App;
