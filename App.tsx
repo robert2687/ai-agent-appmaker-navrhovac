@@ -1,12 +1,13 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { GoogleGenAI, Chat } from '@google/genai';
-import { Message, Role, Agent, ChatSession, Provider } from './types';
+import { Message, Role, Agent, ChatSession, Provider, Integration } from './types';
 import Header from './components/Header';
 import ChatWindow from './components/ChatWindow';
 import UserInput from './components/UserInput';
 import ErrorDisplay from './components/ErrorDisplay';
 import HistorySidebar from './components/HistorySidebar';
+import IntegrationsPanel from './components/IntegrationsPanel';
 
 const agentSystemInstructions: Record<Agent, string> = {
     [Agent.Default]: 'You are a helpful and friendly AI assistant. Answer user queries clearly and concisely. Use markdown for formatting when it improves readability.',
@@ -247,6 +248,7 @@ const App: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [generationType, setGenerationType] = useState<'text' | 'image' | null>(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [showIntegrations, setShowIntegrations] = useState(false);
 
     const [activeProvider, setActiveProvider] = useState<Provider>(Provider.Gemini);
     const [activeAgent, setActiveAgent] = useState<Agent>(Agent.Default);
@@ -259,6 +261,8 @@ const App: React.FC = () => {
     const initialState = getInitialStateForProvider(activeProvider);
     const [sessions, setSessions] = useState<Record<Agent, ChatSession[]>>(initialState.sessions);
     const [activeSessionIds, setActiveSessionIds] = useState<Record<Agent, string>>(initialState.activeSessionIds);
+
+    const [integrations, setIntegrations] = useState<Integration[]>([]);
     
     const handleModelChange = (provider: Provider, newModel: string) => {
         setModelState(prevState => ({
@@ -273,37 +277,69 @@ const App: React.FC = () => {
     const chatInstancesRef = useRef<Map<string, Chat>>(new Map());
     const streamControllerRef = useRef<AbortController | null>(null);
 
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem('integrations');
+            if (saved) {
+                setIntegrations(JSON.parse(saved));
+            }
+        } catch (e) {
+            console.error('Failed to load integrations', e);
+        }
+    }, []);
 
     useEffect(() => {
-        setError(null); // Clear previous errors on provider change
+        try {
+            localStorage.setItem('integrations', JSON.stringify(integrations));
+        } catch (e) {
+            console.error('Failed to save integrations', e);
+        }
+    }, [integrations]);
 
-        switch(activeProvider) {
+    const resolveApiKey = useCallback((provider: Provider): string | undefined => {
+        const fromList = integrations.find(i => i.provider === provider && i.enabled !== false && (i.apiKey || '').trim());
+        if (fromList && fromList.apiKey) return fromList.apiKey.trim();
+        switch(provider) {
             case Provider.Gemini:
-                if (process.env.API_KEY) {
+                return process.env.API_KEY;
+            case Provider.HuggingFace:
+                return process.env.HUGGING_FACE_TOKEN;
+            case Provider.TogetherAI:
+                return process.env.TOGETHER_API_KEY;
+        }
+    }, [integrations]);
+
+    useEffect(() => {
+        setError(null);
+        switch(activeProvider) {
+            case Provider.Gemini: {
+                const key = resolveApiKey(Provider.Gemini);
+                if (key) {
                     try {
-                        aiRef.current = new GoogleGenAI({ apiKey: process.env.API_KEY });
+                        aiRef.current = new GoogleGenAI({ apiKey: key });
                     } catch (e) {
                         console.error(e);
-                        setError(e instanceof Error ? e.message : "Failed to initialize Gemini Client.");
+                        setError(e instanceof Error ? e.message : 'Failed to initialize Gemini Client.');
                         aiRef.current = null;
                     }
                 } else {
-                    setError('Gemini API key not set. Please ensure the API_KEY environment variable is configured.');
+                    setError('Gemini API key not set. Configure it in Integrations or set API_KEY env var.');
                     aiRef.current = null;
                 }
                 break;
-            case Provider.HuggingFace:
-                if (!process.env.HUGGING_FACE_TOKEN) {
-                    setError('Hugging Face API key not set. Please set the HUGGING_FACE_TOKEN environment variable.');
-                }
+            }
+            case Provider.HuggingFace: {
+                const key = resolveApiKey(Provider.HuggingFace);
+                if (!key) setError('Hugging Face API key not set. Configure it in Integrations or set HUGGING_FACE_TOKEN env var.');
                 break;
-            case Provider.TogetherAI:
-                if (!process.env.TOGETHER_API_KEY) {
-                    setError('Together.AI API key not set. Please set the TOGETHER_API_KEY environment variable.');
-                }
+            }
+            case Provider.TogetherAI: {
+                const key = resolveApiKey(Provider.TogetherAI);
+                if (!key) setError('Together.AI API key not set. Configure it in Integrations or set TOGETHER_API_KEY env var.');
                 break;
+            }
         }
-    }, [activeProvider]);
+    }, [activeProvider, resolveApiKey]);
 
     useEffect(() => {
         const previousProvider = previousProviderRef.current;
@@ -464,7 +500,7 @@ const App: React.FC = () => {
 
     const handleHuggingFaceStream = (text: string, signal: AbortSignal) => {
         const model = modelState[Provider.HuggingFace];
-        const apiKey = process.env.HUGGING_FACE_TOKEN;
+        const apiKey = resolveApiKey(Provider.HuggingFace);
         return handleGenericStream(
             text, Provider.HuggingFace, model, apiKey,
             `https://api-inference.huggingface.co/models/${model}`,
@@ -476,7 +512,7 @@ const App: React.FC = () => {
 
     const handleTogetherAIStream = (text: string, signal: AbortSignal) => {
         const model = modelState[Provider.TogetherAI];
-        const apiKey = process.env.TOGETHER_API_KEY;
+        const apiKey = resolveApiKey(Provider.TogetherAI);
         const history = activeSession.messages.map(msg => ({ role: msg.role === Role.USER ? 'user' : 'assistant', content: msg.content }));
         return handleGenericStream(
             text, Provider.TogetherAI, model, apiKey,
@@ -739,6 +775,7 @@ const App: React.FC = () => {
                     modelState={modelState}
                     onModelChange={handleModelChange}
                     onExportChat={handleExportChat}
+                    onOpenIntegrations={() => setShowIntegrations(true)}
                 />
                 {error && !activeSession?.messages.some(m => m.role === Role.ERROR) && <ErrorDisplay message={error} />}
                 <ChatWindow 
@@ -757,6 +794,17 @@ const App: React.FC = () => {
                     activeProvider={activeProvider} 
                 />
             </div>
+            {showIntegrations && (
+                <IntegrationsPanel
+                    open={showIntegrations}
+                    integrations={integrations}
+                    onClose={() => setShowIntegrations(false)}
+                    onSave={(items) => {
+                        setIntegrations(items);
+                        setShowIntegrations(false);
+                    }}
+                />
+            )}
         </div>
     );
 };
