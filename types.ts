@@ -34,3 +34,12 @@ export interface ChatSession {
     title: string;
     messages: Message[];
 }
+
+export interface Integration {
+    id: string;
+    name: string;
+    apiKey?: string;
+    enabled?: boolean;
+    provider?: Provider;
+    baseUrl?: string;
+}

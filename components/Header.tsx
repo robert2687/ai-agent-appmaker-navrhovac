@@ -6,6 +6,7 @@ import HistoryIcon from './icons/HistoryIcon';
 import ProviderSelector from './ProviderSelector';
 import ModelInput from './ModelInput';
 import DownloadIcon from './icons/DownloadIcon';
+import SettingsIcon from './icons/SettingsIcon';
 
 interface HeaderProps {
     activeAgent: Agent;
@@ -16,6 +17,7 @@ interface HeaderProps {
     modelState: Record<string, string>;
     onModelChange: (provider: Provider, model: string) => void;
     onExportChat: () => void;
+    onOpenIntegrations: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ 
@@ -27,6 +29,7 @@ const Header: React.FC<HeaderProps> = ({
     modelState,
     onModelChange,
     onExportChat,
+    onOpenIntegrations,
 }) => {
     return (
         <header className="bg-gray-800/50 backdrop-blur-sm border-b border-gray-700 p-4 shadow-md z-10 flex-shrink-0">
@@ -50,6 +53,14 @@ const Header: React.FC<HeaderProps> = ({
                         title="Export Chat"
                     >
                         <DownloadIcon />
+                    </button>
+                    <button
+                        onClick={onOpenIntegrations}
+                        className="p-2 rounded-full text-slate-400 hover:bg-gray-700 hover:text-slate-100 transition-colors"
+                        aria-label="Integrations"
+                        title="Integrations"
+                    >
+                        <SettingsIcon />
                     </button>
                     <ProviderSelector activeProvider={activeProvider} onProviderChange={onProviderChange} />
                     {activeProvider === Provider.Gemini ? (
